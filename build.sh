@@ -1,0 +1,1 @@
+gcc -O0 -g -o minirtmp minirtmp.c minirtmp_test.c system.cpp -lrtmp -lpthread
