@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "minirtmp.h"
 #include "system.h"
 
@@ -59,15 +60,47 @@ static const int format_avcc(uint8_t *buf, uint8_t *sps, int sps_size, uint8_t *
     return buf - orig_buf;
 }
 
-int do_receive()
+int do_receive(const char *fname)
 {
+    FILE *f = fopen(fname, "wb");
     int packet = 0;
     MINIRTMP r;
     minirtmp_init(&r, "rtmp://184.72.239.149/vod/BigBuckBunny_115k.mov", 0);
     while (1)
     {
         if (MINIRTMP_OK == minirtmp_read(&r))
-            printf("packet %d\n", packet++);
+        {
+            RTMPPacket *pkt = &r.rtmpPacket;
+            if (pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO || pkt->m_packetType == RTMP_PACKET_TYPE_AUDIO)
+            {
+                printf("packet %d %s size=%d\n", packet++, pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO ? "video" : "audio", pkt->m_nBodySize);
+                if (pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO)
+                {
+                    uint8_t *nal = pkt->m_body;
+                    if (!nal[1])
+                    {   // stream headers
+                        uint32_t startcode = 0x01000000;
+                        uint8_t *avcc = nal + 5;
+                        assert(avcc[0] == 1);
+                        assert(avcc[4] == 0xFF);
+                        assert(avcc[5] == 0xE1);
+                        int sps_size = ((int)avcc[6] << 8) | avcc[7];
+                        fwrite(&startcode, 4, 1, f);
+                        fwrite(avcc + 8, sps_size, 1, f);
+                        avcc += 8 + sps_size;
+                        assert(avcc[0] == 1);
+                        int pps_size = ((int)avcc[1] << 8) | avcc[2];
+                        fwrite(&startcode, 4, 1, f);
+                        fwrite(avcc + 3, pps_size, 1, f);
+                    } else
+                    {
+                        nal += 5;
+                        *(uint32_t *)nal = 0x01000000;
+                        fwrite(nal, pkt->m_nBodySize - 5, 1, f);
+                    }
+                }
+            }
+        }
     }
     return 0;
 }
@@ -79,7 +112,7 @@ int main(int argc, char **argv)
     uint32_t start_time;
     int stream = 0 != strstr(argv[1], "rtmp://");
     if (!stream)
-        return do_receive();
+        return do_receive(argv[1]);
     MINIRTMP r;
     minirtmp_init(&r, argv[1], 1);
     minirtmp_metadata(&r, 240, 160, 0);
