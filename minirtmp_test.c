@@ -5,6 +5,9 @@
 #include "minirtmp.h"
 #include "system.h"
 
+#define DEF_STREAM_FILE "stream.h264"
+#define DEF_PLAY_URL    "rtmp://184.72.239.149/vod/BigBuckBunny_115k.mov"
+
 static uint8_t *preload(const char *path, int *data_size)
 {
     FILE *file = fopen(path, "rb");
@@ -60,7 +63,7 @@ static const int format_avcc(uint8_t *buf, uint8_t *sps, int sps_size, uint8_t *
     return buf - orig_buf;
 }
 
-int do_receive(const char *fname)
+int do_receive(const char *fname, const char *play_url)
 {
     FILE *f = fopen(fname, "wb");
     if (!f)
@@ -70,7 +73,7 @@ int do_receive(const char *fname)
     }
     int packet = 0;
     MINIRTMP r;
-    if (minirtmp_init(&r, "rtmp://184.72.239.149/vod/BigBuckBunny_115k.mov", 0))
+    if (minirtmp_init(&r, play_url, 0))
     {
         printf("error: can't open RTMP url\n");
         return 0;
@@ -119,7 +122,15 @@ int main(int argc, char **argv)
 {
     if (argc < 2)
     {
-        printf("usage: minirtmp URL or file_name\n");
+        printf("usage: minirtmp URL/file_name [file_name or URL]\n"
+               "  if first param is URL, then streamer mode is used.\n"
+               "  if first param is file name, then player mode is used.\n"
+               "  streamer mode:\n"
+               "    first param  - destination URL to stream\n"
+               "    second param - h264 file to stream (%s default).\n"
+               "  player mode:\n"
+               "    first param  - destination file to save h264\n"
+               "    second param - URL to play (%s default).\n", DEF_STREAM_FILE, DEF_PLAY_URL);
         return 0;
     }
 #ifdef WIN32
@@ -129,8 +140,13 @@ int main(int argc, char **argv)
     unsigned char last_sps[100], last_pps[100], avcc[200];
     uint32_t start_time;
     int stream = 0 != strstr(argv[1], "rtmp://");
+    const char *param2 = 0;
+    if (argc > 2)
+    {
+        param2 = argv[2];
+    }
     if (!stream)
-        return do_receive(argv[1]);
+        return do_receive(argv[1], param2 ? param2 : DEF_PLAY_URL);
     MINIRTMP r;
     if (minirtmp_init(&r, argv[1], 1))
     {
@@ -138,7 +154,7 @@ int main(int argc, char **argv)
         return 0;
     }
     minirtmp_metadata(&r, 240, 160, 0);
-    uint8_t *buf_h264 = preload("stream.h264", &h264_size);
+    uint8_t *buf_h264 = preload(param2 ? param2 : DEF_STREAM_FILE, &h264_size);
     while (h264_size)
     {
         int nal_size = get_nal_size(buf_h264, h264_size);
