@@ -1,8 +1,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <sys/time.h>
 #include <assert.h>
+#ifndef _WIN32
+#include <poll.h>
+#endif
 #include "minirtmp.h"
 
 #define GET_FLV_HEADER(have_audio, have_video) \
@@ -77,11 +79,11 @@ int minirtmp_write(MINIRTMP *r, uint8_t *data, int size, uint32_t timestamp, int
 
     int flv_size = format_flv(r->flv_buf, data, size, is_video ? 9 : 8, timestamp, timestamp, keyframe, stream_hdrs);
     RTMP_Write(r->rtmp, (const char *)r->flv_buf, flv_size);
-
-    fd_set sockset; struct timeval timeout = { 0, 0 };
-    FD_ZERO(&sockset); FD_SET(RTMP_Socket(r->rtmp), &sockset);
-    int result = select(RTMP_Socket(r->rtmp) + 1, &sockset, NULL, NULL, &timeout);
-    if (result == 1 && FD_ISSET(RTMP_Socket(r->rtmp), &sockset))
+#ifndef _WIN32
+    struct pollfd pf;
+    pf.fd = RTMP_Socket(r->rtmp);
+    pf.events = POLLIN | POLLHUP | POLLERR;
+    if (poll(&pf, 1, 0) > 0)
     {
         RTMP_ReadPacket(r->rtmp, &r->rtmpPacket);
         if (RTMPPacket_IsReady(&r->rtmpPacket))
@@ -90,6 +92,7 @@ int minirtmp_write(MINIRTMP *r, uint8_t *data, int size, uint32_t timestamp, int
             RTMPPacket_Free(&r->rtmpPacket);
         }
     }
+#endif
     return MINIRTMP_OK;
 }
 

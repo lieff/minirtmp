@@ -19,7 +19,7 @@ typedef struct MINIRTMP
 } MINIRTMP;
 
 int minirtmp_init(MINIRTMP *r, const char *url, int stream);
-int minirtmp_close(MINIRTMP *r);
+void minirtmp_close(MINIRTMP *r);
 // nals without sync point, stream headers in avcc format
 int minirtmp_write(MINIRTMP *r, uint8_t *data, int size, uint32_t timestamp, int is_video, int keyframe, int stream_hdrs);
 int minirtmp_metadata(MINIRTMP *r, int width, int height, int have_audio);
