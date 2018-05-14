@@ -117,12 +117,18 @@ int minirtmp_init(MINIRTMP *r, const char *url, int stream)
     memset(r, 0, sizeof(*r));
     r->rtmp = RTMP_Alloc();
     RTMP_Init(r->rtmp);
-    RTMP_SetupURL(r->rtmp, (char *)url);
+    if (!RTMP_SetupURL(r->rtmp, (char *)url))
+        goto error;
     if (stream)
         RTMP_EnableWrite(r->rtmp);
-    RTMP_Connect(r->rtmp, NULL);
-    RTMP_ConnectStream(r->rtmp, 0);
+    if (!RTMP_Connect(r->rtmp, NULL))
+        goto error;
+    if (!RTMP_ConnectStream(r->rtmp, 0))
+        goto error;
     return MINIRTMP_OK;
+error:
+    minirtmp_close(r);
+    return MINIRTMP_ERROR;
 }
 
 void minirtmp_close(MINIRTMP *r)
