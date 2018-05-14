@@ -63,9 +63,18 @@ static const int format_avcc(uint8_t *buf, uint8_t *sps, int sps_size, uint8_t *
 int do_receive(const char *fname)
 {
     FILE *f = fopen(fname, "wb");
+    if (!f)
+    {
+        printf("error: can't open file\n");
+        return 0;
+    }
     int packet = 0;
     MINIRTMP r;
-    minirtmp_init(&r, "rtmp://184.72.239.149/vod/BigBuckBunny_115k.mov", 0);
+    if (minirtmp_init(&r, "rtmp://184.72.239.149/vod/BigBuckBunny_115k.mov", 0))
+    {
+        printf("error: can't open RTMP url\n");
+        return 0;
+    }
     while (1)
     {
         if (MINIRTMP_OK == minirtmp_read(&r))
@@ -99,7 +108,8 @@ int do_receive(const char *fname)
                         fwrite(nal, pkt->m_nBodySize - 5, 1, f);
                     }
                 }
-            }
+            } else
+                printf("packet %d type=%d size=%d\n", packet++, pkt->m_packetType, pkt->m_nBodySize);
         }
     }
     return 0;
@@ -107,6 +117,11 @@ int do_receive(const char *fname)
 
 int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        printf("usage: minirtmp URL or file_name\n");
+        return 0;
+    }
 #ifdef WIN32
     RTMP_InitWinSock();
 #endif
@@ -117,7 +132,11 @@ int main(int argc, char **argv)
     if (!stream)
         return do_receive(argv[1]);
     MINIRTMP r;
-    minirtmp_init(&r, argv[1], 1);
+    if (minirtmp_init(&r, argv[1], 1))
+    {
+        printf("error: can't open RTMP url %s\n", argv[1]);
+        return 0;
+    }
     minirtmp_metadata(&r, 240, 160, 0);
     uint8_t *buf_h264 = preload("stream.h264", &h264_size);
     while (h264_size)
