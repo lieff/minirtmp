@@ -76,7 +76,7 @@ int minirtmp_write(MINIRTMP *r, uint8_t *data, int size, uint32_t timestamp, int
     }
 
     int flv_size = format_flv(r->flv_buf, data, size, is_video ? 9 : 8, timestamp, timestamp, keyframe, stream_hdrs);
-    RTMP_Write(r->rtmp, r->flv_buf, flv_size);
+    RTMP_Write(r->rtmp, (const char *)r->flv_buf, flv_size);
 
     fd_set sockset; struct timeval timeout = { 0, 0 };
     FD_ZERO(&sockset); FD_SET(RTMP_Socket(r->rtmp), &sockset);
@@ -122,10 +122,13 @@ int minirtmp_init(MINIRTMP *r, const char *url, int stream)
     return MINIRTMP_OK;
 }
 
-int minirtmp_close(MINIRTMP *r)
+void minirtmp_close(MINIRTMP *r)
 {
     if (r->flv_buf)
         free(r->flv_buf);
+    if (r->rtmp)
+        RTMP_Free(r->rtmp);
+    RTMPPacket_Free(&r->rtmpPacket);
 }
 
 int minirtmp_metadata(MINIRTMP *r, int width, int height, int have_audio)

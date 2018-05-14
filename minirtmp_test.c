@@ -76,9 +76,9 @@ int do_receive(const char *fname)
                 printf("packet %d %s size=%d\n", packet++, pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO ? "video" : "audio", pkt->m_nBodySize);
                 if (pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO)
                 {
-                    uint8_t *nal = pkt->m_body;
+                    uint8_t *nal = (uint8_t *)pkt->m_body;
                     if (!nal[1])
-                    {   // stream headers
+                    {   // stream headers in avcc format
                         uint32_t startcode = 0x01000000;
                         uint8_t *avcc = nal + 5;
                         assert(avcc[0] == 1);
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
                 minirtmp_write(&r, avcc, avcc_size, 0, 1, 1, 1);
                 header_sent = 1;
                 start_time = GetTime()/1000;
-            } else
+            } else if ((nal_type != 7) && (nal_type != 8))
             {
                 int is_intra = nal_type == 5;
                 uint32_t ts = (uint32_t)(GetTime()/1000) - start_time;
