@@ -53,7 +53,7 @@ static const int format_avcc(uint8_t *buf, uint8_t *sps, int sps_size, uint8_t *
     buf += sps_size;
 
     *buf++ = 1;
-    *buf++ = (pps_size >> 8) & 0xFF; // 2 bytes for length of SPS
+    *buf++ = (pps_size >> 8) & 0xFF; // 2 bytes for length of PPS
     *buf++ = pps_size & 0xFF;
     memcpy(buf, pps, pps_size);
     buf += pps_size;
