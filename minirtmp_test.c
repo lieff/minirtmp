@@ -107,6 +107,9 @@ int do_receive(const char *fname)
 
 int main(int argc, char **argv)
 {
+#ifdef WIN32
+    RTMP_InitWinSock();
+#endif
     int h264_size, last_sps_bytes = 0, last_pps_bytes = 0, header_sent = 0, frame = 0, avcc_size;
     unsigned char last_sps[100], last_pps[100], avcc[200];
     uint32_t start_time;
@@ -139,7 +142,7 @@ int main(int argc, char **argv)
                 avcc_size = format_avcc(avcc, last_sps, last_sps_bytes, last_pps, last_pps_bytes);
                 minirtmp_write(&r, avcc, avcc_size, 0, 1, 1, 1);
                 header_sent = 1;
-                start_time = GetTime()/1000;
+                start_time = (uint32_t)(GetTime()/1000);
             } else if ((nal_type != 7) && (nal_type != 8))
             {
                 int is_intra = nal_type == 5;

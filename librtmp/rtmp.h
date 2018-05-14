@@ -1,5 +1,3 @@
-#ifndef __RTMP_H__
-#define __RTMP_H__
 /*
  *      Copyright (C) 2005-2008 Team XBMC
  *      http://www.xbmc.org
@@ -25,6 +23,8 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
+#ifndef __RTMP_H__
+#define __RTMP_H__
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -352,10 +352,9 @@ extern "C"
   void RTMP_DropRequest(RTMP *r, int i, int freeit);
   int RTMP_Read(RTMP *r, char *buf, int size);
   int RTMP_Write(RTMP *r, const char *buf, int size);
-
-/* hashswf.c */
-  int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
-		   int age);
+#ifdef WIN32
+  void RTMP_InitWinSock();
+#endif
 
 /* 
  ***********************************************************************

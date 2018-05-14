@@ -1,5 +1,3 @@
-#ifndef __AMF_H__
-#define __AMF_H__
 /*
  *      Copyright (C) 2005-2008 Team XBMC
  *      http://www.xbmc.org
@@ -25,6 +23,8 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
+#ifndef __AMF_H__
+#define __AMF_H__
 #include <stdint.h>
 
 #ifndef TRUE

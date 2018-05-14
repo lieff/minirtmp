@@ -1,5 +1,3 @@
-#ifndef __RTMP_SYS_H__
-#define __RTMP_SYS_H__
 /*
  *      Copyright (C) 2010 Howard Chu
  *
@@ -22,21 +20,30 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
+#ifndef __RTMP_SYS_H__
+#define __RTMP_SYS_H__
+
 #ifdef _WIN32
+
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#pragma warning(disable: 4018)
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
 #ifdef _MSC_VER	/* MSVC */
+#if _MSC_VER < 1900
 #define snprintf _snprintf
+#define vsnprintf _vsnprintf
+#endif
 #define strcasecmp stricmp
 #define strncasecmp strnicmp
-#define vsnprintf _vsnprintf
 #endif
 
 #define GetSockError()	WSAGetLastError()
 #define SetSockError(e)	WSASetLastError(e)
 #define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
+#undef EWOULDBLOCK
 #define EWOULDBLOCK	WSAETIMEDOUT	/* we don't use nonblocking, but we do use timeouts */
 #define sleep(n)	Sleep(n*1000)
 #define msleep(n)	Sleep(n)
