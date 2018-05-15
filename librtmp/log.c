@@ -21,6 +21,7 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
+#ifdef _DEBUG
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -32,13 +33,7 @@
 
 #define MAX_PRINT_LEN  2048
 
-RTMP_LogLevel RTMP_debuglevel = RTMP_LOGERROR;
-
-static int neednl;
-
-static FILE *fmsg;
-
-static RTMP_LogCallback rtmp_log_default, *cb = rtmp_log_default;
+static RTMP_LogLevel RTMP_debuglevel = RTMP_LOGERROR;
 
 static const char *levels[] = {
     "CRIT", "ERROR", "WARNING", "INFO", "DEBUG", "DEBUG2"
@@ -47,48 +42,15 @@ static const char *levels[] = {
 static void rtmp_log_default(int level, const char *format, va_list vl)
 {
     char str[MAX_PRINT_LEN] = "";
-
     vsnprintf(str, MAX_PRINT_LEN - 1, format, vl);
-
     /* Filter out 'no-name' */
     if (RTMP_debuglevel < RTMP_LOGALL && strstr(str, "no-name" ) != NULL)
         return;
-
-    if (!fmsg)
-        fmsg = stderr;
-
     if (level <= RTMP_debuglevel)
     {
-        if (neednl)
-        {
-            putc('\n', fmsg);
-            neednl = 0;
-        }
-        fprintf(fmsg, "%s: %s\n", levels[level], str);
-#ifdef _DEBUG
-        fflush(fmsg);
-#endif
+        fprintf(stderr, "%s: %s\n", levels[level], str);
+        fflush(stderr);
     }
-}
-
-void RTMP_LogSetOutput(FILE *file)
-{
-    fmsg = file;
-}
-
-void RTMP_LogSetLevel(RTMP_LogLevel level)
-{
-    RTMP_debuglevel = level;
-}
-
-void RTMP_LogSetCallback(RTMP_LogCallback *cbp)
-{
-    cb = cbp;
-}
-
-RTMP_LogLevel RTMP_LogGetLevel()
-{
-    return RTMP_debuglevel;
 }
 
 void RTMP_Log(int level, const char *format, ...)
@@ -99,7 +61,7 @@ void RTMP_Log(int level, const char *format, ...)
         return;
 
     va_start(args, format);
-    cb(level, format, args);
+    rtmp_log_default(level, format, args);
     va_end(args);
 }
 
@@ -115,7 +77,7 @@ void RTMP_LogHex(int level, const uint8_t *data, unsigned long len)
 
     ptr = line;
 
-    for (i = 0; i<len; i++)
+    for (i = 0; i < len; i++)
     {
         *ptr++ = hexdig[0x0f & (data[i] >> 4)];
         *ptr++ = hexdig[0x0f & data[i]];
@@ -188,3 +150,4 @@ void RTMP_LogHexString(int level, const uint8_t *data, unsigned long len)
 
     RTMP_Log(level, "%s", line);
 }
+#endif
