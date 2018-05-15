@@ -36,16 +36,16 @@ extern "C"
 {
 #endif
 
-#define RTMP_LIB_VERSION	0x020300	/* 2.3 */
+#define RTMP_LIB_VERSION    0x020300    /* 2.3 */
 
-#define RTMP_FEATURE_HTTP	0x01
-#define RTMP_FEATURE_ENC	0x02
-#define RTMP_FEATURE_SSL	0x04
-#define RTMP_FEATURE_MFP	0x08	/* not yet supported */
-#define RTMP_FEATURE_WRITE	0x10	/* publish, not play */
-#define RTMP_FEATURE_HTTP2	0x20	/* server-side rtmpt */
+#define RTMP_FEATURE_HTTP   0x01
+#define RTMP_FEATURE_ENC    0x02
+#define RTMP_FEATURE_SSL    0x04
+#define RTMP_FEATURE_MFP    0x08    /* not yet supported */
+#define RTMP_FEATURE_WRITE  0x10    /* publish, not play */
+#define RTMP_FEATURE_HTTP2  0x20    /* server-side rtmpt */
 
-#define RTMP_PROTOCOL_UNDEFINED	-1
+#define RTMP_PROTOCOL_UNDEFINED -1
 #define RTMP_PROTOCOL_RTMP      0
 #define RTMP_PROTOCOL_RTMPE     RTMP_FEATURE_ENC
 #define RTMP_PROTOCOL_RTMPT     RTMP_FEATURE_HTTP
@@ -54,18 +54,18 @@ extern "C"
 #define RTMP_PROTOCOL_RTMPTS    (RTMP_FEATURE_HTTP|RTMP_FEATURE_SSL)
 #define RTMP_PROTOCOL_RTMFP     RTMP_FEATURE_MFP
 
-#define RTMP_DEFAULT_CHUNKSIZE	128
+#define RTMP_DEFAULT_CHUNKSIZE  128
 
 /* needs to fit largest number of bytes recv() may return */
 #define RTMP_BUFFER_CACHE_SIZE (16*1024)
 
-#define	RTMP_CHANNELS	65600
+#define RTMP_CHANNELS    65600
 
-  extern const char RTMPProtocolStringsLower[][7];
-  extern const AVal RTMP_DefaultFlashVer;
-  extern int RTMP_ctrlC;
+extern const char RTMPProtocolStringsLower[][7];
+extern const AVal RTMP_DefaultFlashVer;
+extern int RTMP_ctrlC;
 
-  uint32_t RTMP_GetTime(void);
+uint32_t RTMP_GetTime(void);
 
 /*      RTMP_PACKET_TYPE_...                0x00 */
 #define RTMP_PACKET_TYPE_CHUNK_SIZE         0x01
@@ -98,52 +98,52 @@ extern "C"
 #define RTMP_PACKET_SIZE_SMALL    2
 #define RTMP_PACKET_SIZE_MINIMUM  3
 
-  typedef struct RTMPChunk
-  {
+typedef struct RTMPChunk
+{
     int c_headerSize;
     int c_chunkSize;
     char *c_chunk;
     char c_header[RTMP_MAX_HEADER_SIZE];
-  } RTMPChunk;
+} RTMPChunk;
 
-  typedef struct RTMPPacket
-  {
+typedef struct RTMPPacket
+{
     uint8_t m_headerType;
     uint8_t m_packetType;
-    uint8_t m_hasAbsTimestamp;	/* timestamp absolute or relative? */
+    uint8_t m_hasAbsTimestamp; /* timestamp absolute or relative? */
     int m_nChannel;
-    uint32_t m_nTimeStamp;	/* timestamp */
-    int32_t m_nInfoField2;	/* last 4 bytes in a long header */
+    uint32_t m_nTimeStamp;    /* timestamp */
+    int32_t m_nInfoField2;    /* last 4 bytes in a long header */
     uint32_t m_nBodySize;
     uint32_t m_nBytesRead;
     RTMPChunk *m_chunk;
     char *m_body;
-  } RTMPPacket;
+} RTMPPacket;
 
-  typedef struct RTMPSockBuf
-  {
+typedef struct RTMPSockBuf
+{
     int sb_socket;
-    int sb_size;		/* number of unprocessed bytes in buffer */
-    char *sb_start;		/* pointer into sb_pBuffer of next byte to process */
-    char sb_buf[RTMP_BUFFER_CACHE_SIZE];	/* data read from socket */
+    int sb_size;           /* number of unprocessed bytes in buffer */
+    char *sb_start;        /* pointer into sb_pBuffer of next byte to process */
+    char sb_buf[RTMP_BUFFER_CACHE_SIZE];    /* data read from socket */
     int sb_timedout;
     void *sb_ssl;
-  } RTMPSockBuf;
+} RTMPSockBuf;
 
-  void RTMPPacket_Reset(RTMPPacket *p);
-  void RTMPPacket_Dump(RTMPPacket *p);
-  int RTMPPacket_Alloc(RTMPPacket *p, uint32_t nSize);
-  void RTMPPacket_Free(RTMPPacket *p);
+void RTMPPacket_Reset(RTMPPacket *p);
+void RTMPPacket_Dump(RTMPPacket *p);
+int RTMPPacket_Alloc(RTMPPacket *p, uint32_t nSize);
+void RTMPPacket_Free(RTMPPacket *p);
 
-#define RTMPPacket_IsReady(a)	((a)->m_nBytesRead == (a)->m_nBodySize)
+#define RTMPPacket_IsReady(a)    ((a)->m_nBytesRead == (a)->m_nBodySize)
 
-  typedef struct RTMP_LNK
-  {
+typedef struct RTMP_LNK
+{
     AVal hostname;
     AVal sockshost;
 
-    AVal playpath0;	/* parsed from URL */
-    AVal playpath;	/* passed in explicitly */
+    AVal playpath0;    /* parsed from URL */
+    AVal playpath;    /* passed in explicitly */
     AVal tcUrl;
     AVal swfUrl;
     AVal pageUrl;
@@ -161,47 +161,47 @@ extern "C"
     int seekTime;
     int stopTime;
 
-#define RTMP_LF_AUTH	0x0001	/* using auth param */
-#define RTMP_LF_LIVE	0x0002	/* stream is live */
-#define RTMP_LF_SWFV	0x0004	/* do SWF verification */
-#define RTMP_LF_PLST	0x0008	/* send playlist before play */
-#define RTMP_LF_BUFX	0x0010	/* toggle stream on BufferEmpty msg */
-#define RTMP_LF_FTCU	0x0020	/* free tcUrl on close */
-#define RTMP_LF_FAPU	0x0040	/* free app on close */
+#define RTMP_LF_AUTH    0x0001    /* using auth param */
+#define RTMP_LF_LIVE    0x0002    /* stream is live */
+#define RTMP_LF_SWFV    0x0004    /* do SWF verification */
+#define RTMP_LF_PLST    0x0008    /* send playlist before play */
+#define RTMP_LF_BUFX    0x0010    /* toggle stream on BufferEmpty msg */
+#define RTMP_LF_FTCU    0x0020    /* free tcUrl on close */
+#define RTMP_LF_FAPU    0x0040    /* free app on close */
     int lFlags;
 
     int swfAge;
 
     int protocol;
-    int timeout;		/* connection timeout in seconds */
+    int timeout;        /* connection timeout in seconds */
 
-    int pFlags;			/* unused, but kept to avoid breaking ABI */
+    int pFlags;            /* unused, but kept to avoid breaking ABI */
 
     unsigned short socksport;
     unsigned short port;
 
   } RTMP_LNK;
 
-  /* state for read() wrapper */
-  typedef struct RTMP_READ
-  {
+/* state for read() wrapper */
+typedef struct RTMP_READ
+{
     char *buf;
     char *bufpos;
     unsigned int buflen;
     uint32_t timestamp;
     uint8_t dataType;
     uint8_t flags;
-#define RTMP_READ_HEADER	0x01
-#define RTMP_READ_RESUME	0x02
-#define RTMP_READ_NO_IGNORE	0x04
-#define RTMP_READ_GOTKF		0x08
-#define RTMP_READ_GOTFLVK	0x10
-#define RTMP_READ_SEEKING	0x20
+#define RTMP_READ_HEADER    0x01
+#define RTMP_READ_RESUME    0x02
+#define RTMP_READ_NO_IGNORE    0x04
+#define RTMP_READ_GOTKF        0x08
+#define RTMP_READ_GOTFLVK    0x10
+#define RTMP_READ_SEEKING    0x20
     int8_t status;
-#define RTMP_READ_COMPLETE	-3
-#define RTMP_READ_ERROR	-2
-#define RTMP_READ_EOF	-1
-#define RTMP_READ_IGNORE	0
+#define RTMP_READ_COMPLETE    -3
+#define RTMP_READ_ERROR    -2
+#define RTMP_READ_EOF    -1
+#define RTMP_READ_IGNORE    0
 
     /* if bResume == TRUE */
     uint8_t initialFrameType;
@@ -212,23 +212,23 @@ extern "C"
     uint32_t nInitialFrameSize;
     uint32_t nIgnoredFrameCounter;
     uint32_t nIgnoredFlvFrameCounter;
-  } RTMP_READ;
+} RTMP_READ;
 
-  typedef struct RTMP_METHOD
-  {
+typedef struct RTMP_METHOD
+{
     AVal name;
     int num;
-  } RTMP_METHOD;
+} RTMP_METHOD;
 
-  typedef struct RTMP
-  {
+typedef struct RTMP
+{
     int m_inChunkSize;
     int m_outChunkSize;
     int m_nBWCheckCounter;
     int m_nBytesIn;
     int m_nBytesInSent;
     int m_nBufferMS;
-    int m_stream_id;		/* returned in _result from createStream */
+    int m_stream_id;        /* returned in _result from createStream */
     int m_mediaChannel;
     uint32_t m_mediaStamp;
     uint32_t m_pauseStamp;
@@ -242,21 +242,21 @@ extern "C"
 
     int m_numInvokes;
     int m_numCalls;
-    RTMP_METHOD *m_methodCalls;	/* remote method calls queue */
+    RTMP_METHOD *m_methodCalls;    /* remote method calls queue */
 
     int m_channelsAllocatedIn;
     int m_channelsAllocatedOut;
     RTMPPacket **m_vecChannelsIn;
     RTMPPacket **m_vecChannelsOut;
-    int *m_channelTimestamp;	/* abs timestamp of last packet */
+    int *m_channelTimestamp;    /* abs timestamp of last packet */
 
-    double m_fAudioCodecs;	/* audioCodecs for the connect packet */
-    double m_fVideoCodecs;	/* videoCodecs for the connect packet */
-    double m_fEncoding;		/* AMF0 or AMF3 */
+    double m_fAudioCodecs;    /* audioCodecs for the connect packet */
+    double m_fVideoCodecs;    /* videoCodecs for the connect packet */
+    double m_fEncoding;        /* AMF0 or AMF3 */
 
-    double m_fDuration;		/* duration of stream in seconds */
+    double m_fDuration;        /* duration of stream in seconds */
 
-    int m_msgCounter;		/* RTMPT stuff */
+    int m_msgCounter;        /* RTMPT stuff */
     int m_polling;
     int m_resplen;
     int m_unackd;
@@ -266,143 +266,79 @@ extern "C"
     RTMPPacket m_write;
     RTMPSockBuf m_sb;
     RTMP_LNK Link;
-  } RTMP;
+} RTMP;
 
-  int RTMP_ParseURL(const char *url, int *protocol, AVal *host,
-		     unsigned int *port, AVal *playpath, AVal *app);
+int RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port, AVal *playpath, AVal *app);
 
-  void RTMP_ParsePlaypath(AVal *in, AVal *out);
-  void RTMP_SetBufferMS(RTMP *r, int size);
-  void RTMP_UpdateBufferMS(RTMP *r);
+void RTMP_ParsePlaypath(AVal *in, AVal *out);
+void RTMP_SetBufferMS(RTMP *r, int size);
+void RTMP_UpdateBufferMS(RTMP *r);
 
-  int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg);
-  int RTMP_SetupURL(RTMP *r, char *url);
-  void RTMP_SetupStream(RTMP *r, int protocol,
-			AVal *hostname,
-			unsigned int port,
-			AVal *sockshost,
-			AVal *playpath,
-			AVal *tcUrl,
-			AVal *swfUrl,
-			AVal *pageUrl,
-			AVal *app,
-			AVal *auth,
-			AVal *swfSHA256Hash,
-			uint32_t swfSize,
-			AVal *flashVer,
-			AVal *subscribepath,
-			AVal *usherToken,
-			int dStart,
-			int dStop, int bLiveStream, long int timeout);
+int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg);
+int RTMP_SetupURL(RTMP *r, char *url);
+void RTMP_SetupStream(RTMP *r, int protocol, AVal *hostname, unsigned int port, AVal *sockshost,
+    AVal *playpath, AVal *tcUrl, AVal *swfUrl, AVal *pageUrl, AVal *app, AVal *auth,
+    AVal *swfSHA256Hash, uint32_t swfSize, AVal *flashVer, AVal *subscribepath,
+    AVal *usherToken, int dStart, int dStop, int bLiveStream, long int timeout);
 
-  int RTMP_Connect(RTMP *r, RTMPPacket *cp);
-  struct sockaddr;
-  int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
-  int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
-  int RTMP_Serve(RTMP *r);
-  int RTMP_TLS_Accept(RTMP *r, void *ctx);
+int RTMP_Connect(RTMP *r, RTMPPacket *cp);
+struct sockaddr;
+int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
+int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
+int RTMP_Serve(RTMP *r);
+int RTMP_TLS_Accept(RTMP *r, void *ctx);
 
-  int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
-  int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
-  int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
-  int RTMP_IsConnected(RTMP *r);
-  int RTMP_Socket(RTMP *r);
-  int RTMP_IsTimedout(RTMP *r);
-  double RTMP_GetDuration(RTMP *r);
-  int RTMP_ToggleStream(RTMP *r);
+int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
+int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
+int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
+int RTMP_IsConnected(RTMP *r);
+int RTMP_Socket(RTMP *r);
+int RTMP_IsTimedout(RTMP *r);
+double RTMP_GetDuration(RTMP *r);
+int RTMP_ToggleStream(RTMP *r);
 
-  int RTMP_ConnectStream(RTMP *r, int seekTime);
-  int RTMP_ReconnectStream(RTMP *r, int seekTime);
-  void RTMP_DeleteStream(RTMP *r);
-  int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
-  int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
+int RTMP_ConnectStream(RTMP *r, int seekTime);
+int RTMP_ReconnectStream(RTMP *r, int seekTime);
+void RTMP_DeleteStream(RTMP *r);
+int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
+int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
 
-  void RTMP_Init(RTMP *r);
-  void RTMP_Close(RTMP *r);
-  RTMP *RTMP_Alloc(void);
-  void RTMP_Free(RTMP *r);
-  void RTMP_EnableWrite(RTMP *r);
+void RTMP_Init(RTMP *r);
+void RTMP_Close(RTMP *r);
+RTMP *RTMP_Alloc(void);
+void RTMP_Free(RTMP *r);
+void RTMP_EnableWrite(RTMP *r);
 
-  void *RTMP_TLS_AllocServerContext(const char* cert, const char* key);
-  void RTMP_TLS_FreeServerContext(void *ctx);
+void *RTMP_TLS_AllocServerContext(const char* cert, const char* key);
+void RTMP_TLS_FreeServerContext(void *ctx);
 
-  int RTMP_LibVersion(void);
-  void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */
+int RTMP_LibVersion(void);
+void RTMP_UserInterrupt(void);    /* user typed Ctrl-C */
 
-  int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
-		     unsigned int nTime);
+int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime);
 
-  /* caller probably doesn't know current timestamp, should
-   * just use RTMP_Pause instead
-   */
-  int RTMP_SendPause(RTMP *r, int DoPause, int dTime);
-  int RTMP_Pause(RTMP *r, int DoPause);
+/* caller probably doesn't know current timestamp, should
+ * just use RTMP_Pause instead
+ */
+int RTMP_SendPause(RTMP *r, int DoPause, int dTime);
+int RTMP_Pause(RTMP *r, int DoPause);
 
-  int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
-				      AMFObjectProperty * p);
+int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name, AMFObjectProperty * p);
 
-  int RTMPSockBuf_Fill(RTMPSockBuf *sb);
-  int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
-  int RTMPSockBuf_Close(RTMPSockBuf *sb);
+int RTMPSockBuf_Fill(RTMPSockBuf *sb);
+int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
+int RTMPSockBuf_Close(RTMPSockBuf *sb);
 
-  int RTMP_SendCreateStream(RTMP *r);
-  int RTMP_SendSeek(RTMP *r, int dTime);
-  int RTMP_SendServerBW(RTMP *r);
-  int RTMP_SendClientBW(RTMP *r);
-  void RTMP_DropRequest(RTMP *r, int i, int freeit);
-  int RTMP_Read(RTMP *r, char *buf, int size);
-  int RTMP_Write(RTMP *r, const char *buf, int size);
+int RTMP_SendCreateStream(RTMP *r);
+int RTMP_SendSeek(RTMP *r, int dTime);
+int RTMP_SendServerBW(RTMP *r);
+int RTMP_SendClientBW(RTMP *r);
+void RTMP_DropRequest(RTMP *r, int i, int freeit);
+int RTMP_Read(RTMP *r, char *buf, int size);
+int RTMP_Write(RTMP *r, const char *buf, int size);
 #ifdef WIN32
-  void RTMP_InitWinSock();
+void RTMP_InitWinSock();
 #endif
-
-/* 
- ***********************************************************************
-<<<<<<< HEAD
-<<<<<<< HEAD
- * Introduced by SRS, export the ip/pid/cid of BMS
- ***********************************************************************
- */
-/*
- * The exported ip of server, for example, we use DNS to connect to server,
- * but the ip resolved by DNS system maybe virtual ip, that is, the "real ip"
- * only known by server itself and return by the rtmp connect result or flv 
- * metadata.
- */
-extern char* _srs_ip;
-/*
- * The pid of BMS, used to query the detail log of client.
- * A BMS server may restart and the pid changed.
- */
-extern int _srs_pid;
-/*
- * The cid of BMS, used to query the detail log of client.
- * A connection of a process(identify by pid) is unique and its id(cid) is
- * unique also. The cid generally is a thread or connection or logic unit,
- * for example, cid of rtmp client is the rtmp connection, while cid of hls+
- * is a virtual connection which merge many http connections.
- */
-extern int _srs_cid;
-/* 
- ***********************************************************************
- * Introduced by SRS, other useful data.
- ***********************************************************************
- */
-/*
- * The received bytes from server. user can use to stat the kbps by:
- *      rkbps = rbytes * 8 / 1000 / (diff seconds)
- */
-extern unsigned long _srs_rbytes;
-/*
- * The sent bytes from server. user can use to stat the kbps by:
- *      skbps = sbytes * 8 / 1000 / (diff seconds)
- */
-extern unsigned long _srs_sbytes;
-/*
- * The current state of client.
- *  0,init 1,idle 2,connected 3,working 4,closed
- */
-extern int _srs_state;
 
 #ifdef __cplusplus
 };

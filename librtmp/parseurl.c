@@ -30,8 +30,7 @@
 #include "rtmp_sys.h"
 #include "log.h"
 
-int RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port,
-                  AVal *playpath, AVal *app)
+int RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port, AVal *playpath, AVal *app)
 {
     char *p, *end, *col, *ques, *slash;
 
@@ -48,26 +47,27 @@ int RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port
 
     /* look for usual :// pattern */
     p = strstr(url, "://");
-    if (!p) {
+    if (!p)
+    {
         RTMP_Log(RTMP_LOGERROR, "RTMP URL: No :// in url!");
         return FALSE;
     }
     {
-        int len = (int)(p-url);
+        int len = (int)(p - url);
 
-        if(len == 4 && strncasecmp(url, "rtmp", 4)==0)
+        if (len == 4 && strncasecmp(url, "rtmp", 4) == 0)
             *protocol = RTMP_PROTOCOL_RTMP;
-        else if(len == 5 && strncasecmp(url, "rtmpt", 5)==0)
+        else if (len == 5 && strncasecmp(url, "rtmpt", 5) == 0)
             *protocol = RTMP_PROTOCOL_RTMPT;
-        else if(len == 5 && strncasecmp(url, "rtmps", 5)==0)
+        else if (len == 5 && strncasecmp(url, "rtmps", 5) == 0)
             *protocol = RTMP_PROTOCOL_RTMPS;
-        else if(len == 5 && strncasecmp(url, "rtmpe", 5)==0)
+        else if (len == 5 && strncasecmp(url, "rtmpe", 5) == 0)
             *protocol = RTMP_PROTOCOL_RTMPE;
-        else if(len == 5 && strncasecmp(url, "rtmfp", 5)==0)
+        else if (len == 5 && strncasecmp(url, "rtmfp", 5) == 0)
             *protocol = RTMP_PROTOCOL_RTMFP;
-        else if(len == 6 && strncasecmp(url, "rtmpte", 6)==0)
+        else if (len == 6 && strncasecmp(url, "rtmpte", 6) == 0)
             *protocol = RTMP_PROTOCOL_RTMPTE;
-        else if(len == 6 && strncasecmp(url, "rtmpts", 6)==0)
+        else if (len == 6 && strncasecmp(url, "rtmpts", 6) == 0)
             *protocol = RTMP_PROTOCOL_RTMPTS;
         else {
             RTMP_Log(RTMP_LOGWARNING, "Unknown protocol!\n");
@@ -79,10 +79,11 @@ int RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port
 
 parsehost:
     /* let's get the hostname */
-    p+=3;
+    p += 3;
 
     /* check for sudden death */
-    if(*p==0) {
+    if (*p==0)
+    {
         RTMP_Log(RTMP_LOGWARNING, "No hostname in URL!");
         return FALSE;
     }
@@ -94,41 +95,47 @@ parsehost:
 
     {
         int hostlen;
-        if(slash)
+        if (slash)
             hostlen = slash - p;
         else
             hostlen = end - p;
-        if(col && col -p < hostlen)
+        if (col && col - p < hostlen)
             hostlen = col - p;
 
-        if(hostlen < 256) {
+        if (hostlen < 256)
+        {
             host->av_val = p;
             host->av_len = hostlen;
             RTMP_Log(RTMP_LOGDEBUG, "Parsed host    : %.*s", hostlen, host->av_val);
-        } else {
+        } else
+        {
             RTMP_Log(RTMP_LOGWARNING, "Hostname exceeds 255 characters!");
         }
 
-        p+=hostlen;
+        p += hostlen;
     }
 
     /* get the port number if available */
-    if(*p == ':') {
+    if (*p == ':')
+    {
         unsigned int p2;
         p++;
         p2 = atoi(p);
-        if(p2 > 65535) {
+        if (p2 > 65535)
+        {
             RTMP_Log(RTMP_LOGWARNING, "Invalid port number!");
-        } else {
+        } else
+        {
             *port = p2;
         }
     }
 
-    if(!slash) {
+    if (!slash)
+    {
         RTMP_Log(RTMP_LOGWARNING, "No application or playpath in URL!");
         return TRUE;
     }
-    p = slash+1;
+    p = slash + 1;
 
     {
         /* parse application
@@ -142,28 +149,29 @@ parsehost:
 
         slash2 = strchr(p, '/');
         if(slash2)
-            slash3 = strchr(slash2+1, '/');
+            slash3 = strchr(slash2 + 1, '/');
         if(slash3)
-            slash4 = strchr(slash3+1, '/');
+            slash4 = strchr(slash3 + 1, '/');
 
-        applen = end-p; /* ondemand, pass all parameters as app */
+        applen = end - p; /* ondemand, pass all parameters as app */
         appnamelen = applen; /* ondemand length */
 
-        if(ques && strstr(p, "slist=")) { /* whatever it is, the '?' and slist= means we need to use everything as app and parse plapath from slist= */
-            appnamelen = ques-p;
-        }
-        else if(strncmp(p, "ondemand/", 9)==0) {
+        if (ques && strstr(p, "slist="))
+        {   /* whatever it is, the '?' and slist= means we need to use everything as app and parse plapath from slist= */
+            appnamelen = ques - p;
+        } else if (strncmp(p, "ondemand/", 9) == 0)
+        {
             /* app = ondemand/foobar, only pass app=ondemand */
             applen = 8;
             appnamelen = 8;
-        }
-        else { /* app!=ondemand, so app is app[/appinstance] */
-            if(slash4)
-                appnamelen = slash4-p;
+        } else
+        {   /* app!=ondemand, so app is app[/appinstance] */
+            if (slash4)
+                appnamelen = slash4 - p;
             else if(slash3)
-                appnamelen = slash3-p;
+                appnamelen = slash3 - p;
             else if(slash2)
-                appnamelen = slash2-p;
+                appnamelen = slash2 - p;
 
             applen = appnamelen;
         }
@@ -178,11 +186,11 @@ parsehost:
     if (*p == '/')
         p++;
 
-    if (end-p) {
+    if (end - p)
+    {
         AVal av = {p, end-p};
         RTMP_ParsePlaypath(&av, playpath);
     }
-
     return TRUE;
 }
 
@@ -198,7 +206,8 @@ parsehost:
  * mp3 streams: prepend "mp3:", remove extension
  * flv streams: remove extension
  */
-void RTMP_ParsePlaypath(AVal *in, AVal *out) {
+void RTMP_ParsePlaypath(AVal *in, AVal *out)
+{
     int addMP4 = 0;
     int addMP3 = 0;
     int subExt = 0;
@@ -212,72 +221,85 @@ void RTMP_ParsePlaypath(AVal *in, AVal *out) {
     out->av_val = NULL;
     out->av_len = 0;
 
-    if ((*ppstart == '?') &&
-            (temp=strstr(ppstart, "slist=")) != 0) {
+    if ((*ppstart == '?') && (temp = strstr(ppstart, "slist=")) != 0)
+    {
         ppstart = temp+6;
         pplen = strlen(ppstart);
 
         temp = strchr(ppstart, '&');
-        if (temp) {
-            pplen = temp-ppstart;
+        if (temp)
+        {
+            pplen = temp - ppstart;
         }
     }
 
     q = strchr(ppstart, '?');
-    if (pplen >= 4) {
+    if (pplen >= 4)
+    {
         if (q)
-            ext = q-4;
+            ext = q - 4;
         else
-            ext = &ppstart[pplen-4];
-        if ((strncmp(ext, ".f4v", 4) == 0) ||
-                (strncmp(ext, ".mp4", 4) == 0)) {
+            ext = &ppstart[pplen - 4];
+        if ((strncmp(ext, ".f4v", 4) == 0) || (strncmp(ext, ".mp4", 4) == 0))
+        {
             addMP4 = 1;
             subExt = 1;
             /* Only remove .flv from rtmp URL, not slist params */
-        } else if ((ppstart == playpath) &&
-                   (strncmp(ext, ".flv", 4) == 0)) {
+        } else if ((ppstart == playpath) && (strncmp(ext, ".flv", 4) == 0))
+        {
             subExt = 1;
-        } else if (strncmp(ext, ".mp3", 4) == 0) {
+        } else if (strncmp(ext, ".mp3", 4) == 0)
+        {
             addMP3 = 1;
             subExt = 1;
         }
     }
 
-    streamname = (char *)malloc((pplen+4+1)*sizeof(char));
+    streamname = (char *)malloc((pplen + 4 + 1)*sizeof(char));
     if (!streamname)
         return;
 
     destptr = streamname;
-    if (addMP4) {
-        if (strncmp(ppstart, "mp4:", 4)) {
+    if (addMP4)
+    {
+        if (strncmp(ppstart, "mp4:", 4))
+        {
             strcpy(destptr, "mp4:");
             destptr += 4;
-        } else {
+        } else
+        {
             subExt = 0;
         }
-    } else if (addMP3) {
-        if (strncmp(ppstart, "mp3:", 4)) {
+    } else if (addMP3)
+    {
+        if (strncmp(ppstart, "mp3:", 4))
+        {
             strcpy(destptr, "mp3:");
             destptr += 4;
-        } else {
+        } else
+        {
             subExt = 0;
         }
     }
 
-    for (p=(char *)ppstart; pplen >0;) {
+    for (p = (char *)ppstart; pplen > 0;)
+    {
         /* skip extension */
-        if (subExt && p == ext) {
+        if (subExt && p == ext)
+        {
             p += 4;
             pplen -= 4;
             continue;
         }
-        if (*p == '%') {
+        if (*p == '%')
+        {
             unsigned int c;
-            sscanf(p+1, "%02x", &c);
+            sscanf(p + 1, "%02x", &c);
             *destptr++ = c;
             pplen -= 3;
             p += 3;
-        } else {
+        } else
+        {
             *destptr++ = *p++;
             pplen--;
         }
