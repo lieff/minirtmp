@@ -573,8 +573,7 @@ int AMF3Prop_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize, int
 
 int AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize, int bDecodeName)
 {
-    int nOriginalSize = nSize;
-    int nRes;
+    int nOriginalSize = nSize, nRes;
 
     prop->p_name.av_len = 0;
     prop->p_name.av_val = NULL;
@@ -606,9 +605,7 @@ int AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize, int 
     }
 
     if (nSize == 0)
-    {
         return -1;
-    }
 
     nSize--;
 
@@ -683,8 +680,7 @@ int AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize, int 
         unsigned int nArrayLen = AMF_DecodeInt32(pBuffer);
         nSize -= 4;
 
-        nRes = AMF_DecodeArray(&prop->p_vu.p_object, pBuffer + 4, nSize,
-                               nArrayLen, FALSE);
+        nRes = AMF_DecodeArray(&prop->p_vu.p_object, pBuffer + 4, nSize, nArrayLen, FALSE);
         if (nRes == -1)
             return -1;
         nSize -= nRes;
@@ -923,15 +919,13 @@ char *AMF_EncodeArray(AMFObject *obj, char *pBuffer, char *pBufEnd)
 
 int AMF_DecodeArray(AMFObject *obj, const char *pBuffer, int nSize, int nArrayLen, int bDecodeName)
 {
-    int nOriginalSize = nSize;
-    int bError = FALSE;
+    int nOriginalSize = nSize, bError = FALSE, nRes;
 
     obj->o_num = 0;
     obj->o_props = NULL;
     while (nArrayLen > 0)
     {
         AMFObjectProperty prop;
-        int nRes;
         nArrayLen--;
 
         if (nSize <= 0)
@@ -1098,17 +1092,15 @@ invalid:
 
 int AMF_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bDecodeName)
 {
-    int nOriginalSize = nSize;
-    int bError = FALSE;        /* if there is an error while decoding - try to at least find the end mark AMF_OBJECT_END */
+    int nOriginalSize = nSize, bError = FALSE, nRes;
 
     obj->o_num = 0;
     obj->o_props = NULL;
     while (nSize > 0)
     {
         AMFObjectProperty prop;
-        int nRes;
 
-        if (nSize >=3 && AMF_DecodeInt24(pBuffer) == AMF_OBJECT_END)
+        if (nSize >= 3 && AMF_DecodeInt24(pBuffer) == AMF_OBJECT_END)
         {
             nSize -= 3;
             bError = FALSE;
@@ -1117,8 +1109,7 @@ int AMF_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bDecodeName)
 
         if (bError)
         {
-            RTMP_Log(RTMP_LOGERROR,
-                     "DECODING ERROR, IGNORING BYTES UNTIL NEXT KNOWN PATTERN!");
+            RTMP_Log(RTMP_LOGERROR, "DECODING ERROR, IGNORING BYTES UNTIL NEXT KNOWN PATTERN!");
             nSize--;
             pBuffer++;
             continue;
@@ -1141,17 +1132,15 @@ int AMF_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bDecodeName)
             AMF_AddProp(obj, &prop);
         }
     }
-
     if (bError)
         return -1;
-
     return nOriginalSize - nSize;
 }
 
 void AMF_AddProp(AMFObject *obj, const AMFObjectProperty *prop)
 {
     if (!(obj->o_num & 0x0f))
-        obj->o_props = realloc(obj->o_props, (obj->o_num + 16) * sizeof(AMFObjectProperty));
+        obj->o_props = realloc(obj->o_props, (obj->o_num + 16)*sizeof(AMFObjectProperty));
     memcpy(&obj->o_props[obj->o_num++], prop, sizeof(AMFObjectProperty));
 }
 
@@ -1196,7 +1185,8 @@ void AMF_Reset(AMFObject *obj)
     {
         AMFProp_Reset(&obj->o_props[n]);
     }
-    free(obj->o_props);
+    if (obj->o_props)
+        free(obj->o_props);
     obj->o_props = NULL;
     obj->o_num = 0;
 }

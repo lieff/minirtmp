@@ -140,6 +140,8 @@ void RTMPPacket_Free(RTMPPacket *p)
     {
         free(p->m_body - RTMP_MAX_HEADER_SIZE);
         p->m_body = NULL;
+        p->m_nBodySize  = 0;
+        p->m_nBytesRead = 0;
     }
 }
 
@@ -1052,7 +1054,7 @@ int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
         while (1)
         {
             // String(_result)
-            char* p = packet->m_body;
+            char *p = packet->m_body;
             int nb = packet->m_nBodySize;
             // Marker.
             if (nb < 1)
@@ -1121,8 +1123,9 @@ int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
                 RTMP_Log(RTMP_LOGERROR, "ignore object eof for nb=%d", nb);
                 break;
             }
-            int nRes = -1;
-            if ((nRes = AMF_Decode(&obj, p, nb, TRUE)) < 0)
+            int nRes = AMF_Decode(&obj, p, nb, TRUE);
+            AMF_Reset(&obj);
+            if (nRes < 0)
             {
                 RTMP_Log(RTMP_LOGERROR, "decode object failed, ret=%d", nRes);
                 break;
@@ -1151,28 +1154,28 @@ int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
             }
             if ((nRes = AMF_Decode(&obj, p, nb, TRUE)) < 0)
             {
+                AMF_Reset(&obj);
                 RTMP_Log(RTMP_LOGERROR, "decode object failed, ret=%d", nRes);
                 break;
             }
             nb -= nRes; p += nRes;
             // Parse data object.
             // @remark debug info by http://github.com/ossrs/srs
-            char* _srs_ip = NULL;
-            int _srs_pid = 0;
-            int _srs_cid = 0;
+            char *_srs_ip = NULL;
+            int _srs_pid = 0, _srs_cid = 0;
             static const AVal _const_srs_server_ip = AVC("srs_server_ip");
             static const AVal _const_srs_pid = AVC("srs_pid");
             static const AVal _const_srs_cid = AVC("srs_id");
             int i, j;
             for (i = 0; i < obj.o_num; i++)
             {
-                AMFObjectProperty* prop = &obj.o_props[i];
+                AMFObjectProperty *prop = &obj.o_props[i];
                 if (prop->p_type == AMF_OBJECT || prop->p_type == AMF_ECMA_ARRAY)
                 {
-                    obj = prop->p_vu.p_object;
-                    for (j = 0; j < obj.o_num; j++)
+                    AMFObject *o = &prop->p_vu.p_object;
+                    for (j = 0; j < o->o_num; j++)
                     {
-                        prop = &obj.o_props[j];
+                        prop = &o->o_props[j];
                         if (AVMATCH(&prop->p_name, &_const_srs_server_ip))
                         {
                             if (_srs_ip)
@@ -1191,11 +1194,14 @@ int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
                     break;
                 }
             }
+            AMF_Reset(&obj);
             // Print info.
             if (_srs_pid > 0)
             {
                 RTMP_Log(RTMP_LOGINFO, "SRS ip=%s, pid=%d, cid=%d", _srs_ip, _srs_pid, _srs_cid);
             }
+            if (_srs_ip)
+                free(_srs_ip);
             break;
         }
         if (HandleInvoke(r, packet->m_body, packet->m_nBodySize) == 1)

@@ -103,7 +103,8 @@ int minirtmp_read(MINIRTMP *r)
         r->packet_reveived = 0;
         RTMPPacket_Free(&r->rtmpPacket);
     }
-    RTMP_ReadPacket(r->rtmp, &r->rtmpPacket);
+    if (!RTMP_ReadPacket(r->rtmp, &r->rtmpPacket))
+        return MINIRTMP_EOF;
     if (RTMPPacket_IsReady(&r->rtmpPacket))
     {
         r->packet_reveived = 1;

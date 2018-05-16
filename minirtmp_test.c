@@ -80,7 +80,10 @@ int do_receive(const char *fname, const char *play_url)
     }
     while (1)
     {
-        if (MINIRTMP_OK == minirtmp_read(&r))
+        int res = minirtmp_read(&r);
+        if (MINIRTMP_EOF == res)
+            break;
+        if (MINIRTMP_OK == res)
         {
             RTMPPacket *pkt = &r.rtmpPacket;
             if (pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO || pkt->m_packetType == RTMP_PACKET_TYPE_AUDIO)
@@ -104,7 +107,7 @@ int do_receive(const char *fname, const char *play_url)
                         int pps_size = ((int)avcc[1] << 8) | avcc[2];
                         fwrite(&startcode, 4, 1, f);
                         fwrite(avcc + 3, pps_size, 1, f);
-                    } else
+                    } else if (pkt->m_nBodySize > 9)
                     {
                         nal += 5;
                         *(uint32_t *)nal = 0x01000000;
@@ -115,6 +118,7 @@ int do_receive(const char *fname, const char *play_url)
                 printf("packet %d type=%d size=%d\n", packet++, pkt->m_packetType, pkt->m_nBodySize);
         }
     }
+    minirtmp_close(&r);
     return 0;
 }
 
@@ -190,4 +194,5 @@ int main(int argc, char **argv)
         buf_h264 += nal_size;
         h264_size -= nal_size;
     }
+    minirtmp_close(&r);
 }

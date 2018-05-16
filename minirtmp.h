@@ -7,6 +7,7 @@
 #define MINIRTMP_OK    0
 #define MINIRTMP_ERROR 1
 #define MINIRTMP_MORE_DATA 2
+#define MINIRTMP_EOF   3
 
 typedef struct MINIRTMP
 {
