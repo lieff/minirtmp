@@ -137,8 +137,12 @@ void minirtmp_close(MINIRTMP *r)
     if (r->flv_buf)
         free(r->flv_buf);
     if (r->rtmp)
+    {
+        RTMP_Close(r->rtmp);
         RTMP_Free(r->rtmp);
+    }
     RTMPPacket_Free(&r->rtmpPacket);
+    memset(r, 0, sizeof(*r));
 }
 
 int minirtmp_metadata(MINIRTMP *r, int width, int height, int have_audio)

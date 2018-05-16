@@ -158,8 +158,9 @@ int main(int argc, char **argv)
         return 0;
     }
     minirtmp_metadata(&r, 240, 160, 0);
-    uint8_t *buf_h264 = preload(param2 ? param2 : DEF_STREAM_FILE, &h264_size);
-    while (h264_size)
+    uint8_t *alloc_buf;
+    uint8_t *buf_h264 = alloc_buf = preload(param2 ? param2 : DEF_STREAM_FILE, &h264_size);
+    while (h264_size > 0)
     {
         int nal_size = get_nal_size(buf_h264, h264_size);
         int startcode_size = 4;
@@ -194,5 +195,7 @@ int main(int argc, char **argv)
         buf_h264 += nal_size;
         h264_size -= nal_size;
     }
+    if (alloc_buf)
+        free(alloc_buf);
     minirtmp_close(&r);
 }
