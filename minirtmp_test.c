@@ -4,8 +4,15 @@
 #include <assert.h>
 #include "minirtmp.h"
 #include "system.h"
+#define ENABLE_AUDIO 1
+#if ENABLE_AUDIO
+#include <fdk-aac/aacenc_lib.h>
+#endif
 
+#define VIDEO_FPS  24
+#define AUDIO_RATE 12000
 #define DEF_STREAM_FILE "stream.h264"
+#define DEF_STREAM_PCM  "stream.pcm"
 #define DEF_PLAY_URL    "rtmp://184.72.239.149/vod/BigBuckBunny_115k.mov"
 
 static uint8_t *preload(const char *path, int *data_size)
@@ -140,7 +147,7 @@ int main(int argc, char **argv)
 #ifdef WIN32
     RTMP_InitWinSock();
 #endif
-    int h264_size, last_sps_bytes = 0, last_pps_bytes = 0, header_sent = 0, frame = 0, avcc_size;
+    int h264_size, pcm_size, last_sps_bytes = 0, last_pps_bytes = 0, header_sent = 0, frame = 0, avcc_size;
     unsigned char last_sps[100], last_pps[100], avcc[200];
     uint32_t start_time;
     int stream = 0 != strstr(argv[1], "rtmp://");
@@ -160,6 +167,22 @@ int main(int argc, char **argv)
     minirtmp_metadata(&r, 240, 160, 0);
     uint8_t *alloc_buf;
     uint8_t *buf_h264 = alloc_buf = preload(param2 ? param2 : DEF_STREAM_FILE, &h264_size);
+#if ENABLE_AUDIO
+    int16_t *alloc_pcm;
+    int16_t *buf_pcm  = alloc_pcm = (int16_t *)preload(DEF_STREAM_PCM, &pcm_size);
+    uint32_t sample = 0, total_samples = pcm_size/2, ats = 0;
+    HANDLE_AACENCODER aacenc;
+    AACENC_InfoStruct info;
+    aacEncOpen(&aacenc, 0, 0);
+    aacEncoder_SetParam(aacenc, AACENC_TRANSMUX, 0);
+    aacEncoder_SetParam(aacenc, AACENC_AFTERBURNER, 1);
+    aacEncoder_SetParam(aacenc, AACENC_BITRATE, 64000);
+    aacEncoder_SetParam(aacenc, AACENC_SAMPLERATE, AUDIO_RATE);
+    aacEncoder_SetParam(aacenc, AACENC_CHANNELMODE, 1);
+    aacEncEncode(aacenc, NULL, NULL, NULL, NULL);
+    aacEncInfo(aacenc, &info);
+    minirtmp_write(&r, info.confBuf, info.confSize, 0, 0, 1, 1);
+#endif
     while (h264_size > 0)
     {
         int nal_size = get_nal_size(buf_h264, h264_size);
@@ -175,27 +198,79 @@ int main(int argc, char **argv)
             memcpy(last_sps, buf_h264, last_sps_bytes = nal_size);
         if (nal_size < (signed)sizeof(last_pps) && (nal_type == 8))
             memcpy(last_pps, buf_h264, last_pps_bytes = nal_size);
-        if (last_sps_bytes > 1 && last_pps_bytes > 1)
+        if (last_sps_bytes < 1 || last_pps_bytes < 1)
+            goto done;
+        uint32_t ts = frame*1000/VIDEO_FPS;
+        uint32_t rts = (uint32_t)(GetTime()/1000);
+        if (!header_sent)
         {
-            if (!header_sent)
+            avcc_size = format_avcc(avcc, last_sps, last_sps_bytes, last_pps, last_pps_bytes);
+            minirtmp_write(&r, avcc, avcc_size, 0, 1, 1, 1);
+            header_sent = 1;
+            start_time = rts;
+        } else if ((nal_type != 7) && (nal_type != 8))
+        {
+            int is_intra = nal_type == 5;
+            rts -= start_time;
+            printf("frame %d, intra=%d, time=%.3f, size=%d\n", frame++, is_intra, ts/1000.0, nal_size);
+            minirtmp_write(&r, buf_h264, nal_size, ts, 1, is_intra, 0);
+#if ENABLE_AUDIO
+            while (ats < ts)
             {
-                avcc_size = format_avcc(avcc, last_sps, last_sps_bytes, last_pps, last_pps_bytes);
-                minirtmp_write(&r, avcc, avcc_size, 0, 1, 1, 1);
-                header_sent = 1;
-                start_time = (uint32_t)(GetTime()/1000);
-            } else if ((nal_type != 7) && (nal_type != 8))
-            {
-                int is_intra = nal_type == 5;
-                uint32_t ts = (uint32_t)(GetTime()/1000) - start_time;
-                printf("frame %d, intra=%d, time=%.3f, size=%d\n", frame++, is_intra, ts/1000.0, nal_size);
-                minirtmp_write(&r, buf_h264, nal_size, ts, 1, is_intra, 0);
-                thread_sleep(40);
+                AACENC_BufDesc in_buf, out_buf;
+                AACENC_InArgs  in_args;
+                AACENC_OutArgs out_args;
+                uint8_t buf[2048];
+                if (total_samples < 1024)
+                {
+                    buf_pcm = alloc_pcm;
+                    total_samples = pcm_size/2;
+                }
+                in_args.numInSamples = 1024;
+                void *in_ptr = buf_pcm, *out_ptr = buf;
+                int in_size          = 2*in_args.numInSamples;
+                int in_element_size  = 2;
+                int in_identifier    = IN_AUDIO_DATA;
+                int out_size         = sizeof(buf);
+                int out_identifier   = OUT_BITSTREAM_DATA;
+                int out_element_size = 1;
+
+                in_buf.numBufs            = 1;
+                in_buf.bufs               = &in_ptr;
+                in_buf.bufferIdentifiers  = &in_identifier;
+                in_buf.bufSizes           = &in_size;
+                in_buf.bufElSizes         = &in_element_size;
+                out_buf.numBufs           = 1;
+                out_buf.bufs              = &out_ptr;
+                out_buf.bufferIdentifiers = &out_identifier;
+                out_buf.bufSizes          = &out_size;
+                out_buf.bufElSizes        = &out_element_size;
+
+                if (AACENC_OK != aacEncEncode(aacenc, &in_buf, &out_buf, &in_args, &out_args))
+                {
+                    printf("error: aac encode fail\n");
+                    exit(1);
+                }
+                sample  += in_args.numInSamples;
+                buf_pcm += in_args.numInSamples;
+                total_samples -= in_args.numInSamples;
+                ats = sample*1000/AUDIO_RATE;
+
+                minirtmp_write(&r, buf, out_args.numOutBytes, ats, 0, 1, 0);
             }
+#endif
+            if (ts > rts)
+                thread_sleep(ts - rts);
         }
+done:
         buf_h264 += nal_size;
         h264_size -= nal_size;
     }
     if (alloc_buf)
         free(alloc_buf);
+#if ENABLE_AUDIO
+    if (alloc_pcm)
+        free(alloc_pcm);
+#endif
     minirtmp_close(&r);
 }

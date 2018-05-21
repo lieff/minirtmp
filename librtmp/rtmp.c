@@ -441,8 +441,7 @@ static int parseAMF(AMFObject *obj, AVal *av, int *depth)
             if (i)
             {
                 prop.p_type = AMF_OBJECT;
-            }
-            else
+            } else
             {
                 (*depth)--;
                 return 0;
