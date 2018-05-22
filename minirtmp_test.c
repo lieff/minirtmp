@@ -48,28 +48,6 @@ static int get_nal_size(uint8_t *buf, int size)
     return size;
 }
 
-static const int format_avcc(uint8_t *buf, uint8_t *sps, int sps_size, uint8_t *pps, int pps_size)
-{
-    uint8_t *orig_buf = buf;
-    *buf++ = 0x01;   // version
-    *buf++ = sps[1]; // profile
-    *buf++ = sps[2]; // compatibility
-    *buf++ = sps[3]; // level
-    *buf++ = 0xFC | 3; // reserved (6 bits), NULA length size - 1 (2 bits)
-    *buf++ = 0xE0 | 1; // reserved (3 bits), num of SPS (5 bits)
-    *buf++ = (sps_size >> 8) & 0xFF; // 2 bytes for length of SPS
-    *buf++ = sps_size & 0xFF;
-    memcpy(buf, sps, sps_size);
-    buf += sps_size;
-
-    *buf++ = 1;
-    *buf++ = (pps_size >> 8) & 0xFF; // 2 bytes for length of PPS
-    *buf++ = pps_size & 0xFF;
-    memcpy(buf, pps, pps_size);
-    buf += pps_size;
-    return buf - orig_buf;
-}
-
 int do_receive(const char *fname, const char *play_url)
 {
     FILE *f = fopen(fname, "wb");
@@ -204,7 +182,7 @@ int main(int argc, char **argv)
         uint32_t rts = (uint32_t)(GetTime()/1000);
         if (!header_sent)
         {
-            avcc_size = format_avcc(avcc, last_sps, last_sps_bytes, last_pps, last_pps_bytes);
+            avcc_size = minirtmp_format_avcc(avcc, last_sps, last_sps_bytes, last_pps, last_pps_bytes);
             minirtmp_write(&r, avcc, avcc_size, 0, 1, 1, 1);
             header_sent = 1;
             start_time = rts;

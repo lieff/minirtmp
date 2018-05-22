@@ -199,3 +199,25 @@ static const AVal g_audiocodecid = AVC("audiocodecid");
 
     return RTMP_Write(r->rtmp, buf, pbuf - buf);
 }
+
+int minirtmp_format_avcc(uint8_t *buf, uint8_t *sps, int sps_size, uint8_t *pps, int pps_size)
+{
+    uint8_t *orig_buf = buf;
+    *buf++ = 0x01;   // version
+    *buf++ = sps[1]; // profile
+    *buf++ = sps[2]; // compatibility
+    *buf++ = sps[3]; // level
+    *buf++ = 0xFC | 3; // reserved (6 bits), NULA length size - 1 (2 bits)
+    *buf++ = 0xE0 | 1; // reserved (3 bits), num of SPS (5 bits)
+    *buf++ = (sps_size >> 8) & 0xFF; // 2 bytes for length of SPS
+    *buf++ = sps_size & 0xFF;
+    memcpy(buf, sps, sps_size);
+    buf += sps_size;
+
+    *buf++ = 1;
+    *buf++ = (pps_size >> 8) & 0xFF; // 2 bytes for length of PPS
+    *buf++ = pps_size & 0xFF;
+    memcpy(buf, pps, pps_size);
+    buf += pps_size;
+    return buf - orig_buf;
+}
