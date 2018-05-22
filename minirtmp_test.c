@@ -200,7 +200,7 @@ int main(int argc, char **argv)
             memcpy(last_pps, buf_h264, last_pps_bytes = nal_size);
         if (last_sps_bytes < 1 || last_pps_bytes < 1)
             goto done;
-        uint32_t ts = frame*1000/VIDEO_FPS;
+        uint32_t ts = (uint64_t)frame*1000/VIDEO_FPS;
         uint32_t rts = (uint32_t)(GetTime()/1000);
         if (!header_sent)
         {
@@ -254,7 +254,7 @@ int main(int argc, char **argv)
                 sample  += in_args.numInSamples;
                 buf_pcm += in_args.numInSamples;
                 total_samples -= in_args.numInSamples;
-                ats = sample*1000/AUDIO_RATE;
+                ats = (uint64_t)sample*1000/AUDIO_RATE;
 
                 minirtmp_write(&r, buf, out_args.numOutBytes, ats, 0, 1, 0);
             }
