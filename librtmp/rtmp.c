@@ -733,7 +733,10 @@ int RTMP_Connect0(RTMP *r, struct sockaddr *service)
         }
     }
 
-    setsockopt(r->m_sb.sb_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &on, sizeof(on));
+    if (setsockopt(r->m_sb.sb_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &on, sizeof(on)))
+    {
+        RTMP_Log(RTMP_LOGERROR, "%s, Setting socket nodelay failed!", __FUNCTION__);
+    }
     return TRUE;
 }
 
@@ -750,8 +753,7 @@ int RTMP_Connect1(RTMP *r, RTMPPacket *cp)
         r->m_msgCounter = 1;
         r->m_clientID.av_val = NULL;
         r->m_clientID.av_len = 0;
-        HTTP_Post(r, RTMPT_OPEN, "", 1);
-        if (HTTP_read(r, 1) != 0)
+        if (HTTP_Post(r, RTMPT_OPEN, "", 1) < 0 || HTTP_read(r, 1) != 0)
         {
             r->m_msgCounter = 0;
             RTMP_Log(RTMP_LOGDEBUG, "%s, Could not connect for handshake", __FUNCTION__);
@@ -1280,7 +1282,13 @@ static int ReadN(RTMP *r, char *buffer, int n)
                 if (r->m_sb.sb_size < 13 || refill)
                 {
                     if (!r->m_unackd)
-                        HTTP_Post(r, RTMPT_IDLE, "", 1);
+                    {
+                        if (HTTP_Post(r, RTMPT_IDLE, "", 1) < 0)
+                        {
+                            RTMP_Close(r);
+                            return 0;
+                        }
+                    }
                     if (RTMPSockBuf_Fill(&r->m_sb) < 1)
                     {
                         if (!r->m_sb.sb_timedout)
@@ -3535,7 +3543,8 @@ static int HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len)
         r->m_clientID.av_val ? r->m_clientID.av_val : "",
         r->m_msgCounter, r->Link.hostname.av_len, r->Link.hostname.av_val,
         r->Link.port, len);
-    RTMPSockBuf_Send(&r->m_sb, hbuf, hlen);
+    if (RTMPSockBuf_Send(&r->m_sb, hbuf, hlen) < 0)
+        return -1;
     hlen = RTMPSockBuf_Send(&r->m_sb, buf, len);
     r->m_msgCounter++;
     r->m_unackd++;
@@ -3969,8 +3978,8 @@ stopKeyframeSearch:
                 if (delta)
                 {
                     nTimeStamp += delta;
-                    AMF_EncodeInt24(ptr+pos+4, pend, nTimeStamp);
-                    ptr[pos+7] = nTimeStamp>>24;
+                    AMF_EncodeInt24(ptr + pos + 4, pend, nTimeStamp);
+                    ptr[pos + 7] = nTimeStamp >> 24;
                 }
 
                 /* set data type */
@@ -3983,7 +3992,7 @@ stopKeyframeSearch:
                     {
                         RTMP_Log(RTMP_LOGERROR, "Wrong data size (%u), stream corrupted, aborting!", dataSize);
                         ret = RTMP_READ_ERROR;
-                        break;
+                        goto done;
                     }
                     RTMP_Log(RTMP_LOGWARNING, "No tagSize found, appending!");
 
@@ -4004,9 +4013,7 @@ stopKeyframeSearch:
                     if (prevTagSize != (dataSize + 11))
                     {
 #ifdef _DEBUG
-                        RTMP_Log(RTMP_LOGWARNING,
-                                 "Tag and data size are not consitent, writing tag size according to dataSize+11: %d",
-                                 dataSize + 11);
+                        RTMP_Log(RTMP_LOGWARNING, "Tag and data size are not consitent, writing tag size according to dataSize+11: %d", dataSize + 11);
 #endif
 
                         prevTagSize = dataSize + 11;
@@ -4035,10 +4042,6 @@ stopKeyframeSearch:
         ret = size;
         break;
     }
-
-    if (rtnGetNextMediaPacket)
-        RTMPPacket_Free(&packet);
-
     if (recopy)
     {
         len = ret > buflen ? buflen : ret;
@@ -4046,6 +4049,9 @@ stopKeyframeSearch:
         r->m_read.bufpos = r->m_read.buf + len;
         r->m_read.buflen = ret - len;
     }
+done:
+    if (rtnGetNextMediaPacket)
+        RTMPPacket_Free(&packet);
     return ret;
 }
 

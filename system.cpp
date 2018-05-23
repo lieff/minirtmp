@@ -213,17 +213,16 @@ static bool SignalEvent(Event *e)
 
     Event *pMultipleCond = e->pMultipleCond;
     e->signaled = true;
-    if (pthread_cond_signal(&e->cond))
-        return false;
+    int res = pthread_cond_signal(&e->cond);
 
-    if (pthread_mutex_unlock(&e->mutex))
+    if (pthread_mutex_unlock(&e->mutex) || res)
         return false;
 
     if (pMultipleCond && pMultipleCond != e)
     {
         if (pthread_mutex_lock(&pMultipleCond->mutex))
             return false;
-        int res = pthread_cond_signal(&pMultipleCond->cond);
+        res = pthread_cond_signal(&pMultipleCond->cond);
         if (pthread_mutex_unlock(&pMultipleCond->mutex) || res)
             return false;
     }
