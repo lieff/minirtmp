@@ -441,7 +441,8 @@ static int parseAMF(AMFObject *obj, AVal *av, int *depth)
             if (i)
             {
                 prop.p_type = AMF_OBJECT;
-            } else
+            }
+            else
             {
                 (*depth)--;
                 return 0;
@@ -2594,7 +2595,7 @@ static void HandleCtrl(RTMP *r, const RTMPPacket *packet)
     RTMP_Log(RTMP_LOGDEBUG, "%s, received ctrl. type: %d, len: %d", __FUNCTION__, nType, packet->m_nBodySize);
     /*RTMP_LogHex(packet.m_body, packet.m_nBodySize); */
 
-    if (packet->m_nBodySize >= 6)
+    if (packet->m_body && packet->m_nBodySize >= 6)
     {
         switch (nType)
         {

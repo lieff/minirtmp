@@ -223,9 +223,8 @@ static bool SignalEvent(Event *e)
     {
         if (pthread_mutex_lock(&pMultipleCond->mutex))
             return false;
-        if (pthread_cond_signal(&pMultipleCond->cond))
-            return false;
-        if (pthread_mutex_unlock(&pMultipleCond->mutex))
+        int res = pthread_cond_signal(&pMultipleCond->cond);
+        if (pthread_mutex_unlock(&pMultipleCond->mutex) || res)
             return false;
     }
     return true;

@@ -22,10 +22,14 @@ static uint8_t *preload(const char *path, int *data_size)
     *data_size = 0;
     if (!file)
         return 0;
-    fseek(file, 0, SEEK_END);
+    if (fseek(file, 0, SEEK_END))
+        exit(1);
     *data_size = (int)ftell(file);
-    fseek(file, 0, SEEK_SET);
-    data = (uint8_t*)malloc(*data_size);
+    if (*data_size < 0)
+        exit(1);
+    if (fseek(file, 0, SEEK_SET))
+        exit(1);
+    data = (unsigned char*)malloc(*data_size);
     if (!data)
         exit(1);
     if ((int)fread(data, 1, *data_size, file) != *data_size)
@@ -60,6 +64,7 @@ int do_receive(const char *fname, const char *play_url)
     MINIRTMP r;
     if (minirtmp_init(&r, play_url, 0))
     {
+        fclose(f);
         printf("error: can't open RTMP url\n");
         return 0;
     }
@@ -103,6 +108,7 @@ int do_receive(const char *fname, const char *play_url)
                 printf("packet %d type=%d size=%d\n", packet++, pkt->m_packetType, pkt->m_nBodySize);
         }
     }
+    fclose(f);
     minirtmp_close(&r);
     return 0;
 }
@@ -145,9 +151,19 @@ int main(int argc, char **argv)
     minirtmp_metadata(&r, 240, 160, 0);
     uint8_t *alloc_buf;
     uint8_t *buf_h264 = alloc_buf = preload(param2 ? param2 : DEF_STREAM_FILE, &h264_size);
+    if (!buf_h264)
+    {
+        printf("error: can't open h264 file\n");
+        return 0;
+    }
 #if ENABLE_AUDIO
     int16_t *alloc_pcm;
     int16_t *buf_pcm  = alloc_pcm = (int16_t *)preload(DEF_STREAM_PCM, &pcm_size);
+    if (!buf_pcm)
+    {
+        printf("error: can't pcm file\n");
+        return 0;
+    }
     uint32_t sample = 0, total_samples = pcm_size/2, ats = 0;
     HANDLE_AACENCODER aacenc;
     AACENC_InfoStruct info;

@@ -953,9 +953,8 @@ int AMF_DecodeArray(AMFObject *obj, const char *pBuffer, int nSize, int nArrayLe
 
 int AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
 {
-    int nOriginalSize = nSize;
+    int len, nOriginalSize = nSize;
     int32_t ref;
-    int len;
 
     obj->o_num = 0;
     obj->o_props = NULL;
@@ -973,19 +972,19 @@ int AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
     nSize -= len;
 
     if ((ref & 1) == 0)
-    {                /* object reference, 0xxx */
+    {   /* object reference, 0xxx */
         uint32_t objectIndex = (ref >> 1);
 
         RTMP_Log(RTMP_LOGDEBUG, "Object reference, index: %d", objectIndex);
     } else
-    {                /* object instance */
+    {   /* object instance */
         int32_t classRef = (ref >> 1);
 
         AMF3ClassDef cd = { { 0, 0 } };
         AMFObjectProperty prop;
 
         if ((classRef & 0x1) == 0)
-        {            /* class reference */
+        {   /* class reference */
             uint32_t classIndex = (classRef >> 1);
             RTMP_Log(RTMP_LOGDEBUG, "Class reference: %d", classIndex);
         } else
@@ -1001,30 +1000,27 @@ int AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
             /* class name */
 
             len = AMF3ReadString(pBuffer, &cd.cd_name);
-            nSize -= len;
+            nSize   -= len;
             pBuffer += len;
 
             /*std::string str = className; */
 
-            RTMP_Log(RTMP_LOGDEBUG,
-                     "Class name: %s, externalizable: %d, dynamic: %d, classMembers: %d",
-                     cd.cd_name.av_val, cd.cd_externalizable, cd.cd_dynamic,
-                     cd.cd_num);
+            RTMP_Log(RTMP_LOGDEBUG, "Class name: %s, externalizable: %d, dynamic: %d, classMembers: %d",
+                     cd.cd_name.av_val, cd.cd_externalizable, cd.cd_dynamic, cd.cd_num);
 
             for (i = 0; i < cdnum; i++)
             {
                 AVal memberName;
-                if (nSize <=0)
+                if (nSize <= 0)
                 {
 invalid:
-                    RTMP_Log(RTMP_LOGDEBUG, "%s, invalid class encoding!",
-                             __FUNCTION__);
+                    RTMP_Log(RTMP_LOGDEBUG, "%s, invalid class encoding!", __FUNCTION__);
                     return nOriginalSize;
                 }
                 len = AMF3ReadString(pBuffer, &memberName);
                 RTMP_Log(RTMP_LOGDEBUG, "Member: %s", memberName.av_val);
                 AMF3CD_AddProp(&cd, &memberName);
-                nSize -= len;
+                nSize   -= len;
                 pBuffer += len;
             }
         }
@@ -1092,7 +1088,7 @@ invalid:
 
 int AMF_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bDecodeName)
 {
-    int nOriginalSize = nSize, bError = FALSE, nRes;
+    int nOriginalSize = nSize, nRes;
 
     obj->o_num = 0;
     obj->o_props = NULL;
@@ -1103,37 +1099,18 @@ int AMF_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bDecodeName)
         if (nSize >= 3 && AMF_DecodeInt24(pBuffer) == AMF_OBJECT_END)
         {
             nSize -= 3;
-            bError = FALSE;
             break;
-        }
-
-        if (bError)
-        {
-            RTMP_Log(RTMP_LOGERROR, "DECODING ERROR, IGNORING BYTES UNTIL NEXT KNOWN PATTERN!");
-            nSize--;
-            pBuffer++;
-            continue;
         }
 
         nRes = AMFProp_Decode(&prop, pBuffer, nSize, bDecodeName);
         if (nRes == -1)
-        {
-            bError = TRUE;
-            break;
-        } else
-        {
-            nSize -= nRes;
-            if (nSize < 0)
-            {
-                bError = TRUE;
-                break;
-            }
-            pBuffer += nRes;
-            AMF_AddProp(obj, &prop);
-        }
+            return -1;
+        nSize -= nRes;
+        if (nSize < 0)
+            return -1;
+        pBuffer += nRes;
+        AMF_AddProp(obj, &prop);
     }
-    if (bError)
-        return -1;
     return nOriginalSize - nSize;
 }
 
