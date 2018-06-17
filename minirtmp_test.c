@@ -4,9 +4,11 @@
 #include <assert.h>
 #include "minirtmp.h"
 #include "system.h"
+#include "minirtmp_player.h"
 #define ENABLE_AUDIO 1
 #if ENABLE_AUDIO
 #include <fdk-aac/aacenc_lib.h>
+#include <fdk-aac/aacdecoder_lib.h>
 #endif
 
 #define VIDEO_FPS  24
@@ -52,6 +54,95 @@ static int get_nal_size(uint8_t *buf, int size)
     return size;
 }
 
+void on_packet(void *user, MRTMP_Packet *pkt)
+{
+    FILE *f = (FILE *)user;
+    static int packet = 0;
+    if (pkt->type == RTMP_PACKET_TYPE_VIDEO || pkt->type == RTMP_PACKET_TYPE_AUDIO)
+    {
+        printf("packet %d %s size=%d\n", packet++, pkt->type == RTMP_PACKET_TYPE_VIDEO ? "video" : "audio", pkt->size);
+        if (pkt->type == RTMP_PACKET_TYPE_VIDEO)
+        {
+            uint8_t *nal = (uint8_t *)pkt->data;
+            if (!nal[1])
+            {   // stream headers in avcc format
+                uint32_t startcode = 0x01000000;
+                uint8_t *avcc = nal + 5;
+                assert(avcc[0] == 1);
+                assert(avcc[4] == 0xFF);
+                assert(avcc[5] == 0xE1);
+                int sps_size = ((int)avcc[6] << 8) | avcc[7];
+                if (f)
+                {
+                    fwrite(&startcode, 4, 1, f);
+                    fwrite(avcc + 8, sps_size, 1, f);
+                }
+                avcc += 8 + sps_size;
+                assert(avcc[0] == 1);
+                int pps_size = ((int)avcc[1] << 8) | avcc[2];
+                if (f)
+                {
+                    fwrite(&startcode, 4, 1, f);
+                    fwrite(avcc + 3, pps_size, 1, f);
+                }
+            } else if (pkt->size > 9)
+            {
+                nal += 5;
+                *(uint32_t *)nal = 0x01000000;
+                if (f)
+                    fwrite(nal, pkt->size - 5, 1, f);
+            }
+        } else if (pkt->size > 2)
+        {
+#if ENABLE_AUDIO
+            uint8_t *buf = (uint8_t *)pkt->data;
+            static HANDLE_AACDECODER dec;
+            static FILE *audiof;
+            UCHAR *frame = buf + 2;
+            UINT frame_size = pkt->size - 2;
+            if (!buf[1] && !dec)
+            {
+                dec = aacDecoder_Open(TT_MP4_RAW, 1);
+                if (AAC_DEC_OK != aacDecoder_ConfigRaw(dec, &frame, &frame_size))
+                {
+                    printf("error: aac config fail\n");
+                    exit(1);
+                }
+                audiof = fopen("audio.raw", "wb");
+            } else if (dec)
+            {
+                UINT valid = frame_size;
+                if (AAC_DEC_OK != aacDecoder_Fill(dec, &frame, &frame_size, &valid))
+                {
+                    printf("error: aac decode fail\n");
+                    exit(1);
+                }
+                INT_PCM pcm[2048*8];
+                int err = aacDecoder_DecodeFrame(dec, pcm, sizeof(pcm), 0);
+                if (AAC_DEC_OK != err/*err == AAC_DEC_NOT_ENOUGH_BITS*/)
+                {
+                    printf("error: aac decode fail %d\n", err);
+                    exit(1);
+                }
+                CStreamInfo *info = aacDecoder_GetStreamInfo(dec);
+                if (!info)
+                {
+                    printf("error: aac decode fail\n");
+                    exit(1);
+                }
+                fwrite(pcm, sizeof(INT_PCM)*info->frameSize*info->numChannels, 1, audiof);
+            }
+#endif
+        }
+    } else
+        printf("packet %d type=%d size=%d\n", packet++, pkt->type, pkt->size);
+}
+
+void on_event(void *user, int event, int code)
+{
+    printf("event=%d code=%d\n", event, code);
+}
+
 int do_receive(const char *fname, const char *play_url)
 {
     FILE *f = fopen(fname, "wb");
@@ -60,7 +151,6 @@ int do_receive(const char *fname, const char *play_url)
         printf("error: can't open file\n");
         return 0;
     }
-    int packet = 0;
     MINIRTMP r;
     if (minirtmp_init(&r, play_url, 0))
     {
@@ -76,40 +166,27 @@ int do_receive(const char *fname, const char *play_url)
         if (MINIRTMP_OK == res)
         {
             RTMPPacket *pkt = &r.rtmpPacket;
-            if (pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO || pkt->m_packetType == RTMP_PACKET_TYPE_AUDIO)
-            {
-                printf("packet %d %s size=%d\n", packet++, pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO ? "video" : "audio", pkt->m_nBodySize);
-                if (pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO)
-                {
-                    uint8_t *nal = (uint8_t *)pkt->m_body;
-                    if (!nal[1])
-                    {   // stream headers in avcc format
-                        uint32_t startcode = 0x01000000;
-                        uint8_t *avcc = nal + 5;
-                        assert(avcc[0] == 1);
-                        assert(avcc[4] == 0xFF);
-                        assert(avcc[5] == 0xE1);
-                        int sps_size = ((int)avcc[6] << 8) | avcc[7];
-                        fwrite(&startcode, 4, 1, f);
-                        fwrite(avcc + 8, sps_size, 1, f);
-                        avcc += 8 + sps_size;
-                        assert(avcc[0] == 1);
-                        int pps_size = ((int)avcc[1] << 8) | avcc[2];
-                        fwrite(&startcode, 4, 1, f);
-                        fwrite(avcc + 3, pps_size, 1, f);
-                    } else if (pkt->m_nBodySize > 9)
-                    {
-                        nal += 5;
-                        *(uint32_t *)nal = 0x01000000;
-                        fwrite(nal, pkt->m_nBodySize - 5, 1, f);
-                    }
-                }
-            } else
-                printf("packet %d type=%d size=%d\n", packet++, pkt->m_packetType, pkt->m_nBodySize);
+            MRTMP_Packet p;
+            p.data = pkt->m_body;
+            p.size = pkt->m_nBodySize;
+            p.type = pkt->m_packetType;
+            on_packet(f, &p);
         }
     }
     fclose(f);
     minirtmp_close(&r);
+    return 0;
+}
+
+int do_receive_async(const char *fname, const char *play_url)
+{
+    MRTMP_Player p;
+    mrtmp_player_init(&p);
+    mrtmp_set_packet_callback(&p, on_packet, 0);
+    mrtmp_set_event_callback(&p, on_event, 0);
+    mrtmp_open_url_async(&p, play_url);
+    mrtmp_play(&p);
+    thread_sleep(10000);
     return 0;
 }
 
