@@ -161,6 +161,9 @@ static THREAD_RET THRAPI mrtmp_player_thread(void *lpThreadParameter)
     while (!p->stop_flag && (pkt = read_packet(p)))
     {
         p->packet_cb(p->packet_user_data, pkt);
+        if (pkt->data)
+            free(pkt->data - RTMP_MAX_HEADER_SIZE);
+        free(pkt);
         if (p->paused_flag)
         {
             EnterCriticalSection(&p->reader_lock);
@@ -181,6 +184,14 @@ exit_cleanup:
 exit:
     if (p->event_cb)
         p->event_cb(p->event_user_data, MRTMP_EVENT_STOP, ret);
+    while (p->packets)
+    {
+        if (p->packets->data)
+            free(p->packets->data - RTMP_MAX_HEADER_SIZE);
+        pkt = p->packets->next;
+        free(p->packets);
+        p->packets = pkt;
+    }
     p->stopped_flag = 1;
     return 0;
 }

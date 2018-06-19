@@ -187,6 +187,7 @@ int do_receive_async(const char *fname, const char *play_url)
     mrtmp_open_url_async(&p, play_url);
     mrtmp_play(&p);
     thread_sleep(10000);
+    mrtmp_close_url(&p);
     return 0;
 }
 
