@@ -28,6 +28,7 @@ void mrtmp_player_init(MRTMP_Player *p)
 
 void mrtmp_close_url(MRTMP_Player *p)
 {
+    mrtmp_stop(p);
     if (p->open_url)
         free((void*)p->open_url);
     if (p->rtmp.rtmp)
@@ -121,7 +122,6 @@ static MRTMP_Packet *read_packet(MRTMP_Player *p)
         thread_sleep(100);
     if (p->stop_flag || (p->packets_eof && !p->packets))
         return 0;
-    int ret;
     EnterCriticalSection(&p->pkt_lock);
     if (p->packets_in_buf > 0)
         p->packets_in_buf--;
