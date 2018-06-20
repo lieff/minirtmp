@@ -13,6 +13,7 @@ typedef struct MRTMP_Packet
 {
     void *data;
     struct MRTMP_Packet *next;
+    uint32_t pts;
     int size, type;
 } MRTMP_Packet;
 

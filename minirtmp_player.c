@@ -90,6 +90,7 @@ static THREAD_RET THRAPI mrtmp_reader_thread(void *lpThreadParameter)
             pkt->data = rpkt->m_body;
             pkt->size = rpkt->m_nBodySize;
             pkt->type = rpkt->m_packetType;
+            pkt->pts  = rpkt->m_nTimeStamp;
             if (p->packets)
             {
                 p->tail->next = pkt;
