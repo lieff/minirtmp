@@ -239,7 +239,7 @@ int main(int argc, char **argv)
     int16_t *buf_pcm  = alloc_pcm = (int16_t *)preload(DEF_STREAM_PCM, &pcm_size);
     if (!buf_pcm)
     {
-        printf("error: can't pcm file\n");
+        printf("error: can't open pcm file\n");
         return 0;
     }
     uint32_t sample = 0, total_samples = pcm_size/2, ats = 0;
