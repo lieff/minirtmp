@@ -12,43 +12,45 @@
 
 #define nullptr 0
 
-struct Event
+typedef struct Event Event;
+
+typedef struct Event
 {
     Event * volatile pMultipleCond;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     volatile bool signaled;
     bool manual_reset;
-};
+} Event;
 
 static bool InitEvent(Event *e)
 {
 #if (defined(ANDROID) && !defined(__LP64__)) || defined(__APPLE__)
     if (pthread_cond_init(&e->cond, NULL))
-        return false;
+        return FALSE;
 #else
     pthread_condattr_t attr;
     if (pthread_condattr_init(&attr))
-        return false;
+        return FALSE;
     if (pthread_condattr_setclock(&attr, CLOCK_MONOTONIC))
     {
         pthread_condattr_destroy(&attr);
-        return false;
+        return FALSE;
     }
     if (pthread_cond_init(&e->cond, &attr))
     {
         pthread_condattr_destroy(&attr);
-        return false;
+        return FALSE;
     }
     pthread_condattr_destroy(&attr);
 #endif
     if (pthread_mutex_init(&e->mutex, NULL))
     {
         pthread_cond_destroy(&e->cond);
-        return false;
+        return FALSE;
     }
     e->pMultipleCond = NULL;
-    return true;
+    return TRUE;
 }
 
 #ifdef __APPLE__
@@ -62,7 +64,7 @@ static inline uint64_t GetAbsTimeInNanoseconds()
 }
 #endif
 
-static inline void GetAbsTime(timespec *ts, uint32_t timeout)
+static inline void GetAbsTime(struct timespec *ts, uint32_t timeout)
 {
 #if defined(__APPLE__)
     uint64_t cur_time = GetAbsTimeInNanoseconds();
@@ -85,7 +87,7 @@ static inline int CondTimedWait(pthread_cond_t *cond, pthread_mutex_t *mutex, co
 #if defined(ANDROID) && !defined(__LP64__)
     return pthread_cond_timedwait_monotonic_np(cond, mutex, abstime);
 #elif defined(__APPLE__)
-    timespec reltime;
+    struct timespec reltime;
     uint64_t cur_time = GetAbsTimeInNanoseconds();
     reltime.tv_sec  = abstime->tv_sec  - cur_time/1000000000u;
     reltime.tv_nsec = abstime->tv_nsec - (cur_time % 1000000000u);
@@ -105,15 +107,15 @@ static inline int CondTimedWait(pthread_cond_t *cond, pthread_mutex_t *mutex, co
 static bool WaitForEvent(Event *e, uint32_t timeout, bool *signaled)
 {
     if (pthread_mutex_lock(&e->mutex))
-        return false;
+        return FALSE;
 
-    if (timeout == (uint32_t)INFINITE)
+    if (timeout == INFINITE)
     {
         while (!e->signaled)
             pthread_cond_wait(&e->cond, &e->mutex);
     } else if (timeout != 0)
     {
-        timespec t;
+        struct timespec t;
         GetAbsTime(&t, timeout);
         while (!e->signaled)
         {
@@ -123,11 +125,11 @@ static bool WaitForEvent(Event *e, uint32_t timeout, bool *signaled)
     }
     *signaled = e->signaled;
     if (!e->manual_reset)
-        e->signaled = false;
+        e->signaled = FALSE;
 
     if (pthread_mutex_unlock(&e->mutex))
-        return false;
-    return true;
+        return FALSE;
+    return TRUE;
 }
 
 static bool WaitForMultipleEvents(Event **e, uint32_t count, uint32_t timeout, bool waitAll, int *signaled_num)
@@ -135,7 +137,7 @@ static bool WaitForMultipleEvents(Event **e, uint32_t count, uint32_t timeout, b
     uint32_t i;
 #define PTHR(func, num) for (i = num; i < count; i++)\
         if (func(&e[i]->mutex))\
-            return false;
+            return FALSE;
     PTHR(pthread_mutex_lock, 0);
 
     int sig_num = -1;
@@ -153,7 +155,7 @@ static bool WaitForMultipleEvents(Event **e, uint32_t count, uint32_t timeout, b
                     if (sig_num < 0 && e[i]->signaled)\
                         sig_num = (int)i;\
                     if (!e[i]->manual_reset)\
-                        e[i]->signaled = false;\
+                        e[i]->signaled = FALSE;\
                 }\
         } else\
         {\
@@ -162,13 +164,13 @@ static bool WaitForMultipleEvents(Event **e, uint32_t count, uint32_t timeout, b
                 {\
                     sig_num = (int)i;\
                     if (!e[i]->manual_reset)\
-                        e[i]->signaled = false;\
+                        e[i]->signaled = FALSE;\
                     break;\
                 }\
         }
         CHECK_SIGNALED;
     } else
-    if (timeout == (uint32_t)INFINITE)
+    if (timeout == INFINITE)
     {
 #define SET_MULTIPLE(val) for (i = 1; i < count; i++)\
             e[i]->pMultipleCond = val;
@@ -186,7 +188,7 @@ static bool WaitForMultipleEvents(Event **e, uint32_t count, uint32_t timeout, b
     } else
     {
         SET_MULTIPLE(e[0]);
-        timespec t;
+        struct timespec t;
         GetAbsTime(&t, timeout);
         for (;;)
         {
@@ -203,40 +205,7 @@ static bool WaitForMultipleEvents(Event **e, uint32_t count, uint32_t timeout, b
     }
     PTHR(pthread_mutex_unlock, 0);
     *signaled_num = sig_num;
-    return true;
-}
-
-static bool SignalEvent(Event *e)
-{
-    if (pthread_mutex_lock(&e->mutex))
-        return false;
-
-    Event *pMultipleCond = e->pMultipleCond;
-    e->signaled = true;
-    int res = pthread_cond_signal(&e->cond);
-
-    if (pthread_mutex_unlock(&e->mutex) || res)
-        return false;
-
-    if (pMultipleCond && pMultipleCond != e)
-    {
-        if (pthread_mutex_lock(&pMultipleCond->mutex))
-            return false;
-        res = pthread_cond_signal(&pMultipleCond->cond);
-        if (pthread_mutex_unlock(&pMultipleCond->mutex) || res)
-            return false;
-    }
-    return true;
-}
-
-static bool ResetEvent(Event *e)
-{
-    if (pthread_mutex_lock(&e->mutex))
-        return false;
-    e->signaled = false;
-    if (pthread_mutex_unlock(&e->mutex))
-        return false;
-    return true;
+    return TRUE;
 }
 
 HANDLE event_create(bool manualReset, bool initialState)
@@ -258,23 +227,50 @@ bool event_destroy(HANDLE event)
 {
     Event *e = (Event *)event;
     if (!e)
-        return false;
+        return FALSE;
     if (pthread_cond_destroy(&e->cond))
-        return false;
+        return FALSE;
     if (pthread_mutex_destroy(&e->mutex))
-        return false;
+        return FALSE;
     free((void *)e);
-    return true;
+    return TRUE;
 }
 
 bool event_set(HANDLE event)
 {
-    return SignalEvent((Event *)event);
+    Event *e = (Event *)event;
+    if (pthread_mutex_lock(&e->mutex))
+        return FALSE;
+
+    Event *pMultipleCond = e->pMultipleCond;
+    e->signaled = TRUE;
+    if (pthread_cond_signal(&e->cond))
+        return FALSE;
+
+    if (pthread_mutex_unlock(&e->mutex))
+        return FALSE;
+
+    if (pMultipleCond && pMultipleCond != e)
+    {
+        if (pthread_mutex_lock(&pMultipleCond->mutex))
+            return FALSE;
+        if (pthread_cond_signal(&pMultipleCond->cond))
+            return FALSE;
+        if (pthread_mutex_unlock(&pMultipleCond->mutex))
+            return FALSE;
+    }
+    return TRUE;
 }
 
 bool event_reset(HANDLE event)
 {
-    return ResetEvent((Event *)event);
+    Event *e = (Event *)event;
+    if (pthread_mutex_lock(&e->mutex))
+        return FALSE;
+    e->signaled = FALSE;
+    if (pthread_mutex_unlock(&e->mutex))
+        return FALSE;
+    return TRUE;
 }
 
 int event_wait(HANDLE event, uint32_t milliseconds)
@@ -299,41 +295,41 @@ bool InitializeCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
 {
     pthread_mutexattr_t ma;
     if (pthread_mutexattr_init(&ma))
-        return false;
+        return FALSE;
     if (pthread_mutexattr_settype(&ma, PTHREAD_MUTEX_RECURSIVE))
     {
         pthread_mutexattr_destroy(&ma);
-        return false;
+        return FALSE;
     }
     if (pthread_mutex_init((pthread_mutex_t *)lpCriticalSection, &ma))
     {
         pthread_mutexattr_destroy(&ma);
-        return false;
+        return FALSE;
     }
     if (pthread_mutexattr_destroy(&ma))
-        return false;
-    return true;
+        return FALSE;
+    return TRUE;
 }
 
 bool DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
 {
     if (pthread_mutex_destroy((pthread_mutex_t *)lpCriticalSection))
-        return false;
-    return true;
+        return FALSE;
+    return TRUE;
 }
 
 bool EnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
 {
     if (pthread_mutex_lock((pthread_mutex_t *)lpCriticalSection))
-        return false;
-    return true;
+        return FALSE;
+    return TRUE;
 }
 
 bool LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection) 
 {
     if (pthread_mutex_unlock((pthread_mutex_t *)lpCriticalSection))
-        return false;
-    return true;
+        return FALSE;
+    return TRUE;
 }
 
 HANDLE thread_create(LPTHREAD_START_ROUTINE lpStartAddress, void *lpParameter)
@@ -354,12 +350,12 @@ HANDLE thread_create(LPTHREAD_START_ROUTINE lpStartAddress, void *lpParameter)
 bool thread_close(HANDLE thread)
 {
     if (!thread)
-        return false;
+        return FALSE;
     pthread_t *t = (pthread_t *)thread;
     if (*t)
         pthread_detach(*t);
     free(t);
-    return true;
+    return TRUE;
 }
 
 void *thread_wait(HANDLE thread)
@@ -378,20 +374,20 @@ void *thread_wait(HANDLE thread)
     {
         int res = pthread_tryjoin_np(*t, &ret);
         if (res)
-            return false;
+            return FALSE;
     } else
     if (timeout == INFINITE)
     {
         int res = pthread_join(*t, &ret);
         if (res)
-            return false;
+            return FALSE;
     } else
     {
-        timespec ts;
+        struct timespec ts;
         GetAbsTime(&ts, timeout);
         int res = pthread_timedjoin_np(*t, &ret, &ts);
         if (res)
-            return false;
+            return FALSE;
     }
 #endif
     *t = 0; // thread joined - no need to detach
@@ -406,16 +402,21 @@ HANDLE thread_create(LPTHREAD_START_ROUTINE lpStartAddress, void *lpParameter)
     return CreateThread(0, 0, lpStartAddress, lpParameter, 0, &tid);
 }
 
+HANDLE event_create(bool manualReset, bool initialState)
+{
+    return CreateEvent(0, manualReset, initialState, 0);
+}
+
 bool event_destroy(HANDLE event)
 {
     CloseHandle(event);
-    return true;
+    return TRUE;
 }
 
 bool thread_close(HANDLE thread)
 {
     CloseHandle(thread);
-    return true;
+    return TRUE;
 }
 
 void *thread_wait(HANDLE thread)
@@ -450,7 +451,7 @@ bool thread_name(const char *name)
     {
     }
 #endif
-    return true;
+    return TRUE;
 #elif defined(__linux) || defined(__linux__)
     return (0 == prctl(PR_SET_NAME, name, 0, 0, 0));
     //return (0 == pthread_setname_np(pthread_self(), name));
@@ -477,7 +478,7 @@ uint64_t GetTime()
 #elif defined(__APPLE__)
     time = GetAbsTimeInNanoseconds() / 1000u;
 #else
-    timespec ts;
+    struct timespec ts;
     // CLOCK_PROCESS_CPUTIME_ID CLOCK_THREAD_CPUTIME_ID
     clock_gettime(CLOCK_MONOTONIC, &ts);
     time = (uint64_t)ts.tv_sec * 1000000u + ts.tv_nsec / 1000u;
